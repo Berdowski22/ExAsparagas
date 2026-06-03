@@ -69,7 +69,7 @@ Start the FastAPI server using Uvicorn.
 # Still in the backend directory
 python main.py
 ```
-The backend API will be available at `http://localhost:8000`. You can view the interactive API documentation at `http://localhost:8000/docs`.
+The backend API will be available at `http://localhost:8000`. You can view the interactive API documentation at `http://localhost:8002/docs`.
 
 ### 5. Running the Frontend
 You can simply open `frontend/index.html` in your web browser. Alternatively, for a better development experience, you can serve the frontend directory using a simple HTTP server (e.g., using VS Code Live Server, or Python's built-in http.server).

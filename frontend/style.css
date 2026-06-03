@@ -234,3 +234,39 @@ footer {
     border-top: 1px solid var(--glass-border);
     padding-top: 15px;
 }
+
+/* Web Verification Styles */
+.web-verification {
+    margin-top: 20px;
+    padding: 15px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    border: 1px solid var(--glass-border);
+    text-align: left;
+    transition: all 0.3s ease;
+}
+
+.web-verification h3 {
+    font-size: 1.2rem;
+    margin-bottom: 10px;
+}
+
+.source-list {
+    list-style-type: none;
+    padding-left: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.source-list li a {
+    background: var(--glass-bg);
+    padding: 8px 12px;
+    border-radius: 8px;
+    display: block;
+    transition: background 0.2s ease;
+}
+
+.source-list li a:hover {
+    background: rgba(255, 255, 255, 0.1);
+}

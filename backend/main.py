@@ -4,6 +4,7 @@ import joblib
 import os
 import re
 from fastapi.middleware.cors import CORSMiddleware
+from duckduckgo_search import DDGS
 
 app = FastAPI()
 
@@ -32,6 +33,24 @@ def clean_text(text):
     text = re.sub(r'\s+', ' ', text).strip()
     return text
 
+def verify_with_web(text):
+    # Take a chunk of the text to form a query (first 200 chars to get the gist)
+    query = text[:200]
+    
+    try:
+        with DDGS() as ddgs:
+            # Search DuckDuckGo for the query
+            results = list(ddgs.text(query, max_results=3))
+        
+        if not results:
+            return False, []
+            
+        sources = [{"title": r["title"], "href": r["href"]} for r in results]
+        return True, sources
+    except Exception as e:
+        print("Web search error:", e)
+        return False, []
+
 @app.on_event("startup")
 def load_model():
     global model, vectorizer
@@ -50,18 +69,23 @@ def predict_news(news: NewsInput):
     if not model or not vectorizer:
         raise HTTPException(status_code=500, detail="Model is not loaded.")
     
-    # Preprocess the incoming text exactly like training
+    # 1. Linguistic Analysis (Local ML Model)
     cleaned_input = clean_text(news.text)
-    
-    # Transform and predict
     text_tfidf = vectorizer.transform([cleaned_input])
     prediction = model.predict(text_tfidf)[0]
-    
     label = "Real" if prediction == 1 else "Fake"
     
-    return {"prediction": label, "raw_score": int(prediction)}
+    # 2. Live Fact Checking (Web Search Agent)
+    web_verified, sources = verify_with_web(news.text)
+    
+    return {
+        "prediction": label, 
+        "raw_score": int(prediction),
+        "web_verified": web_verified,
+        "sources": sources
+    }
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.environ.get("PORT", 8001))
+    port = int(os.environ.get("PORT", 8002))
     uvicorn.run(app, host="0.0.0.0", port=port)
