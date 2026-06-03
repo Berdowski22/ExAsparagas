@@ -1,10 +1,29 @@
-from fastapi import FastAPI, HTTPException
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, HTTPException, Response
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 import joblib
 import os
 
-app = FastAPI()
+model = None
+vectorizer = None
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global model, vectorizer
+    model_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'model.pkl')
+    vec_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'vectorizer.pkl')
+    
+    if os.path.exists(model_path) and os.path.exists(vec_path):
+        model = joblib.load(model_path)
+        vectorizer = joblib.load(vec_path)
+        print("Model and vectorizer loaded successfully.")
+    else:
+        print("Warning: Model or vectorizer not found. Please train the model first.")
+    
+    yield
+
+app = FastAPI(lifespan=lifespan)
 
 # Add CORS middleware to allow requests from the frontend
 app.add_middleware(
@@ -17,21 +36,17 @@ app.add_middleware(
 class NewsInput(BaseModel):
     text: str
 
-model = None
-vectorizer = None
+@app.get("/")
+def root():
+    return {"message": "Send a POST request to /predict with JSON body {\"text\": \"...\"}"}
 
-@app.on_event("startup")
-def load_model():
-    global model, vectorizer
-    model_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'model.pkl')
-    vec_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'vectorizer.pkl')
-    
-    if os.path.exists(model_path) and os.path.exists(vec_path):
-        model = joblib.load(model_path)
-        vectorizer = joblib.load(vec_path)
-        print("Model and vectorizer loaded successfully.")
-    else:
-        print("Warning: Model or vectorizer not found. Please train the model first.")
+@app.get("/predict")
+def get_predict():
+    return {"detail": "Use POST /predict with JSON body: {\"text\": \"...\"}"}
+
+@app.get("/favicon.ico")
+def favicon():
+    return Response(status_code=204)
 
 @app.post("/predict")
 def predict_news(news: NewsInput):
