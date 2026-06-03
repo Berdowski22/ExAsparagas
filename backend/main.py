@@ -1,29 +1,11 @@
-from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from fastapi.middleware.cors import CORSMiddleware
 import joblib
 import os
+import re
+from fastapi.middleware.cors import CORSMiddleware
 
-model = None
-vectorizer = None
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    global model, vectorizer
-    model_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'model.pkl')
-    vec_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'vectorizer.pkl')
-    
-    if os.path.exists(model_path) and os.path.exists(vec_path):
-        model = joblib.load(model_path)
-        vectorizer = joblib.load(vec_path)
-        print("Model and vectorizer loaded successfully.")
-    else:
-        print("Warning: Model or vectorizer not found. Please train the model first.")
-    
-    yield
-
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 
 # Add CORS middleware to allow requests from the frontend
 app.add_middleware(
@@ -36,29 +18,44 @@ app.add_middleware(
 class NewsInput(BaseModel):
     text: str
 
-@app.get("/")
-def root():
-    return {"message": "Send a POST request to /predict with JSON body {\"text\": \"...\"}"}
+model = None
+vectorizer = None
 
-@app.get("/predict")
-def get_predict():
-    return {"detail": "Use POST /predict with JSON body: {\"text\": \"...\"}"}
+def clean_text(text):
+    if not isinstance(text, str):
+        return ""
+    text = re.sub(r'^.*?\(Reuters\)\s*-\s*', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'https?://\S+|www\.\S+', '', text)
+    text = re.sub(r'<.*?>', '', text)
+    text = re.sub(r'[^a-zA-Z\s]', ' ', text)
+    text = text.lower()
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
 
-@app.get("/favicon.ico")
-def favicon():
-    return Response(status_code=204)
+@app.on_event("startup")
+def load_model():
+    global model, vectorizer
+    model_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'model.pkl')
+    vec_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'vectorizer.pkl')
+    
+    if os.path.exists(model_path) and os.path.exists(vec_path):
+        model = joblib.load(model_path)
+        vectorizer = joblib.load(vec_path)
+        print("Model and vectorizer loaded successfully.")
+    else:
+        print("Warning: Model or vectorizer not found. Please train the model first.")
 
 @app.post("/predict")
 def predict_news(news: NewsInput):
     if not model or not vectorizer:
         raise HTTPException(status_code=500, detail="Model is not loaded.")
     
-    # Preprocess and predict
-    text_tfidf = vectorizer.transform([news.text])
-    prediction = model.predict(text_tfidf)[0]
+    # Preprocess the incoming text exactly like training
+    cleaned_input = clean_text(news.text)
     
-    # prediction 1 usually means Real (in our dataset), 0 means Fake.
-    # Let's check the dataset distribution later, but we will return the raw int prediction for now.
+    # Transform and predict
+    text_tfidf = vectorizer.transform([cleaned_input])
+    prediction = model.predict(text_tfidf)[0]
     
     label = "Real" if prediction == 1 else "Fake"
     
@@ -66,4 +63,5 @@ def predict_news(news: NewsInput):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.environ.get("PORT", 8001))
+    uvicorn.run(app, host="0.0.0.0", port=port)
