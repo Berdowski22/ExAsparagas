@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const resultLabel = document.getElementById('resultLabel');
     const resultMessage = document.getElementById('resultMessage');
 
-    const API_URL = 'http://127.0.0.1:8000/predict';
+    const API_URL = 'http://127.0.0.1:8001/predict';
 
     analyzeBtn.addEventListener('click', async () => {
         const text = newsInput.value.trim();
