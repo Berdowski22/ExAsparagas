@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI News Authenticator</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="background-shapes">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+        <div class="shape shape-3"></div>
+    </div>
+
+    <div class="container">
+        <header>
+            <h1>News Authenticator</h1>
+            <p>Paste a news paragraph below and our AI will determine its authenticity.</p>
+        </header>
+
+        <main>
+            <div class="input-section">
+                <textarea id="newsInput" placeholder="Enter the news paragraph here..."></textarea>
+                <button id="analyzeBtn">Analyze News</button>
+            </div>
+
+            <div id="resultSection" class="result-section hidden">
+                <div class="spinner hidden" id="loadingSpinner"></div>
+                <div id="resultContent" class="result-content hidden">
+                    <h2 id="resultLabel">Real</h2>
+                    <p id="resultMessage">This news paragraph appears to be authentic.</p>
+                </div>
+            </div>
+        </main>
+        
+        <footer>
+            <p>Powered by AI Models</p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
