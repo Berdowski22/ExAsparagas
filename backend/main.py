@@ -3,8 +3,11 @@ from pydantic import BaseModel
 import joblib
 import os
 import re
+import numpy as np
+from urllib.parse import urlparse
 from fastapi.middleware.cors import CORSMiddleware
 from duckduckgo_search import DDGS
+from sklearn.metrics.pairwise import cosine_similarity
 
 app = FastAPI()
 
@@ -22,6 +25,13 @@ class NewsInput(BaseModel):
 model = None
 vectorizer = None
 
+TRUSTED_DOMAINS = {
+    'bbc.com', 'bbc.co.uk', 'reuters.com', 'apnews.com', 
+    'nytimes.com', 'washingtonpost.com', 'nasa.gov', 
+    'cnn.com', 'npr.org', 'theguardian.com', 'wsj.com',
+    'bloomberg.com', 'cnbc.com', 'aljazeera.com'
+}
+
 def clean_text(text):
     if not isinstance(text, str):
         return ""
@@ -33,23 +43,70 @@ def clean_text(text):
     text = re.sub(r'\s+', ' ', text).strip()
     return text
 
-def verify_with_web(text):
-    # Take a chunk of the text to form a query (first 200 chars to get the gist)
-    query = text[:200]
+def extract_keywords(text_tfidf, top_n=5):
+    if not vectorizer:
+        return ""
+    feature_names = vectorizer.get_feature_names_out()
+    # text_tfidf is a sparse matrix of shape (1, n_features)
+    row = text_tfidf.toarray()[0]
+    indices = np.argsort(row)[::-1]
+    top_indices = indices[:top_n]
+    keywords = [feature_names[i] for i in top_indices if row[i] > 0]
+    return " ".join(keywords)
+
+def verify_with_web(original_text, text_tfidf):
+    # 1. Smart Keyword Extraction
+    keywords = extract_keywords(text_tfidf, top_n=5)
     
     try:
         with DDGS() as ddgs:
-            # Search DuckDuckGo for the query
-            results = list(ddgs.text(query, max_results=3))
+            # Try searching with keywords first
+            results = list(ddgs.text(keywords, max_results=5)) if keywords else []
+            
+            # Fallback to standard text chunk if no results found for keywords
+            if not results:
+                query = original_text[:100]
+                results = list(ddgs.text(query, max_results=5))
         
         if not results:
-            return False, []
+            return False, [], keywords
             
-        sources = [{"title": r["title"], "href": r["href"]} for r in results]
-        return True, sources
+        sources = []
+        verified = False
+        
+        for r in results:
+            # 2. Text Similarity (Semantic Matching)
+            snippet = r.get("body", "")
+            snippet_clean = clean_text(snippet)
+            snippet_tfidf = vectorizer.transform([snippet_clean])
+            
+            similarity = cosine_similarity(text_tfidf, snippet_tfidf)[0][0]
+            
+            # 3. Domain Whitelisting
+            domain = urlparse(r["href"]).netloc.lower()
+            if domain.startswith("www."):
+                domain = domain[4:]
+            
+            is_trusted = domain in TRUSTED_DOMAINS
+            
+            # If similarity is above 5% (snippets are very short) it's considered a semantic match
+            if similarity > 0.05:
+                verified = True
+                
+            sources.append({
+                "title": r["title"],
+                "href": r["href"],
+                "similarity": round(similarity * 100, 1),
+                "is_trusted": is_trusted
+            })
+            
+        # Sort sources by similarity descending
+        sources = sorted(sources, key=lambda x: x["similarity"], reverse=True)
+            
+        return verified, sources, keywords
     except Exception as e:
         print("Web search error:", e)
-        return False, []
+        return False, [], ""
 
 @app.on_event("startup")
 def load_model():
@@ -69,24 +126,24 @@ def predict_news(news: NewsInput):
     if not model or not vectorizer:
         raise HTTPException(status_code=500, detail="Model is not loaded.")
     
-    # 1. Linguistic Analysis (Local ML Model)
     cleaned_input = clean_text(news.text)
     text_tfidf = vectorizer.transform([cleaned_input])
     prediction = model.predict(text_tfidf)[0]
     label = "Real" if prediction == 1 else "Fake"
     
-    # 2. Live Fact Checking (Web Search Agent)
-    web_verified, sources = verify_with_web(news.text)
+    # Live Fact Checking with Advanced Agent capabilities
+    web_verified, sources, keywords = verify_with_web(news.text, text_tfidf)
     
     return {
         "prediction": label, 
         "raw_score": int(prediction),
         "web_verified": web_verified,
-        "sources": sources
+        "sources": sources,
+        "keywords": keywords
     }
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.environ.get("PORT", 8002))
     host = os.environ.get("HOST", "127.0.0.1")
+    port = int(os.environ.get("PORT", 8002))
     uvicorn.run(app, host=host, port=port)

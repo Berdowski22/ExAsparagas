@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Web Verification Elements
     const webVerification = document.getElementById('webVerification');
     const webBadge = document.getElementById('webBadge');
+    const searchKeywords = document.getElementById('searchKeywords');
     const sourceList = document.getElementById('sourceList');
 
     const API_URL = 'http://127.0.0.1:8002/predict';
@@ -27,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (webVerification) webVerification.classList.add('hidden');
         loadingSpinner.classList.remove('hidden');
         if (sourceList) sourceList.innerHTML = ''; // Clear previous sources
+        if (searchKeywords) searchKeywords.textContent = ''; // Clear previous keywords
 
         try {
             const response = await fetch(API_URL, {
@@ -60,31 +62,52 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Set Web Verification Data
             if (webVerification) {
+                if (data.keywords && searchKeywords) {
+                    searchKeywords.textContent = 'Searched Keywords: "' + data.keywords + '"';
+                }
+
                 if (data.web_verified && data.sources.length > 0) {
                     webVerification.classList.remove('hidden');
-                    webBadge.textContent = '✅ Found on the Web';
+                    webBadge.textContent = '✅ Verified by Web Search Agent';
                     webBadge.style.color = '#10b981'; // Success green
 
                     data.sources.forEach(source => {
                         const li = document.createElement('li');
                         const a = document.createElement('a');
                         a.href = source.href;
-                        a.textContent = source.title;
-                        a.target = '_blank'; // open in new tab
+                        a.target = '_blank';
                         a.style.color = '#6366f1';
                         a.style.textDecoration = 'none';
+                        a.style.display = 'flex';
+                        a.style.justifyContent = 'space-between';
+                        a.style.alignItems = 'center';
+                        
+                        let titleHTML = `<span>${source.title}</span>`;
+                        let badgesHTML = `<div class="source-badges">`;
+                        
+                        // Semantic Similarity Badge
+                        badgesHTML += `<span class="badge similarity-badge">${source.similarity}% Match</span>`;
+                        
+                        // Trusted Domain Badge
+                        if (source.is_trusted) {
+                            badgesHTML += `<span class="badge trusted-badge">⭐ Trusted Source</span>`;
+                        }
+                        
+                        badgesHTML += `</div>`;
+                        
+                        a.innerHTML = titleHTML + badgesHTML;
                         li.appendChild(a);
                         sourceList.appendChild(li);
                     });
                 } else if (!isReal) {
-                    // If the ML model says fake AND it wasn't found on the web
+                    // Fake and not on web
                     webVerification.classList.remove('hidden');
-                    webBadge.textContent = '❌ No matching news found on the web';
+                    webBadge.textContent = '❌ No semantic match found on trusted web sources';
                     webBadge.style.color = '#ef4444'; // Danger red
                 } else {
                     // Real linguistically, but not on web
                     webVerification.classList.remove('hidden');
-                    webBadge.textContent = '⚠️ Could not find live web sources for this specific text.';
+                    webBadge.textContent = '⚠️ Could not semantically verify this specific text on the web.';
                     webBadge.style.color = '#f59e0b'; // Warning yellow
                 }
             }

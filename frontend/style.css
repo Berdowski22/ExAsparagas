@@ -270,3 +270,33 @@ footer {
 .source-list li a:hover {
     background: rgba(255, 255, 255, 0.1);
 }
+
+.search-keywords {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-style: italic;
+    margin-bottom: 12px;
+}
+
+.source-badges {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.badge {
+    font-size: 0.75rem;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-weight: 600;
+}
+
+.similarity-badge {
+    background-color: rgba(99, 102, 241, 0.2);
+    color: #818cf8;
+}
+
+.trusted-badge {
+    background-color: rgba(16, 185, 129, 0.2);
+    color: #34d399;
+}
