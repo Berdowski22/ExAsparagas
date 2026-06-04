@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchKeywords = document.getElementById('searchKeywords');
     const sourceList = document.getElementById('sourceList');
 
-    const API_URL = 'http://127.0.0.1:8002/predict';
+    const API_URL = 'http://127.0.0.1:8000/predict';
 
     analyzeBtn.addEventListener('click', async () => {
         const text = newsInput.value.trim();
@@ -81,20 +81,20 @@ document.addEventListener('DOMContentLoaded', () => {
                         a.style.display = 'flex';
                         a.style.justifyContent = 'space-between';
                         a.style.alignItems = 'center';
-                        
+
                         let titleHTML = `<span>${source.title}</span>`;
                         let badgesHTML = `<div class="source-badges">`;
-                        
+
                         // Semantic Similarity Badge
                         badgesHTML += `<span class="badge similarity-badge">${source.similarity}% Match</span>`;
-                        
+
                         // Trusted Domain Badge
                         if (source.is_trusted) {
                             badgesHTML += `<span class="badge trusted-badge">⭐ Trusted Source</span>`;
                         }
-                        
+
                         badgesHTML += `</div>`;
-                        
+
                         a.innerHTML = titleHTML + badgesHTML;
                         li.appendChild(a);
                         sourceList.appendChild(li);
