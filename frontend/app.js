@@ -61,7 +61,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Build the analysis result inside a bot bubble (DOM nodes — safe from injection)
     function renderResult(bubble, data) {
         bubble.innerHTML = '';
-        const isReal = data.prediction === 'Real';
 
         // Verdict badge
         const verdict = data.verdict || 'Uncertain';
@@ -73,11 +72,12 @@ document.addEventListener('DOMContentLoaded', () => {
         badge.textContent = verdict;
         bubble.appendChild(badge);
 
-        // ML prediction line
+        // Gemini verdict line
         const mlLine = document.createElement('p');
         mlLine.className = 'ml-line';
-        mlLine.textContent = 'ML Prediction: ' + data.prediction +
-            (isReal ? ' — appears authentic.' : ' — appears fabricated.');
+        if (data.prediction === 'Real') mlLine.textContent = '🟢 Gemini judged this authentic.';
+        else if (data.prediction === 'Fake') mlLine.textContent = '🔴 Gemini judged this fabricated.';
+        else mlLine.textContent = '🟡 Gemini was uncertain about this.';
         bubble.appendChild(mlLine);
 
         // Confidence bar
@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const wrap = document.createElement('div');
         wrap.className = 'confidence-bar-wrap';
         wrap.innerHTML =
-            '<span class="confidence-label">ML Confidence</span>' +
+            '<span class="confidence-label">Gemini Confidence</span>' +
             '<div class="confidence-bar"><div class="confidence-fill"></div></div>' +
             '<span class="confidence-val"></span>';
         bubble.appendChild(wrap);
@@ -107,12 +107,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.web_verified && data.sources && data.sources.length > 0) {
             webBadge.textContent = '✅ Verified by Web Search Agent';
             webBadge.style.color = '#10b981';
-        } else if (!isReal) {
-            webBadge.textContent = '❌ No semantic match found on trusted web sources';
-            webBadge.style.color = '#ef4444';
-        } else {
-            webBadge.textContent = '⚠️ Could not semantically verify this text on the web.';
+        } else if (data.sources && data.sources.length > 0) {
+            webBadge.textContent = '⚠️ Related results found, but no trusted source strongly matched.';
             webBadge.style.color = '#f59e0b';
+        } else {
+            webBadge.textContent = '❌ No web sources found for this text.';
+            webBadge.style.color = '#ef4444';
         }
         web.appendChild(webBadge);
 

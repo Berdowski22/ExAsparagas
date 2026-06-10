@@ -1,15 +1,13 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from pydantic import BaseModel
-import joblib
 import os
 import re
 import time
+import json
 from google import genai
-import numpy as np
 from urllib.parse import urlparse
 from fastapi.middleware.cors import CORSMiddleware
 from duckduckgo_search import DDGS
-from sklearn.metrics.pairwise import cosine_similarity
 
 app = FastAPI()
 
@@ -24,117 +22,120 @@ app.add_middleware(
 class NewsInput(BaseModel):
     text: str
 
-model = None
-vectorizer = None
-
 TRUSTED_DOMAINS = {
-    'bbc.com', 'bbc.co.uk', 'reuters.com', 'apnews.com', 
-    'nytimes.com', 'washingtonpost.com', 'nasa.gov', 
+    'bbc.com', 'bbc.co.uk', 'reuters.com', 'apnews.com',
+    'nytimes.com', 'washingtonpost.com', 'nasa.gov',
     'cnn.com', 'npr.org', 'theguardian.com', 'wsj.com',
     'bloomberg.com', 'cnbc.com', 'aljazeera.com'
 }
 
-def clean_text(text):
-    if not isinstance(text, str):
-        return ""
-    text = re.sub(r'^.*?\(Reuters\)\s*-\s*', '', text, flags=re.IGNORECASE)
-    text = re.sub(r'https?://\S+|www\.\S+', '', text)
-    text = re.sub(r'<.*?>', '', text)
-    text = re.sub(r'[^a-zA-Z\s]', ' ', text)
-    text = text.lower()
-    text = re.sub(r'\s+', ' ', text).strip()
-    return text
+STOPWORDS = {
+    'the', 'a', 'an', 'and', 'or', 'but', 'of', 'to', 'in', 'on', 'for', 'with',
+    'as', 'by', 'at', 'from', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+    'this', 'that', 'these', 'those', 'it', 'its', 'they', 'them', 'their', 'you',
+    'your', 'we', 'our', 'will', 'would', 'can', 'could', 'should', 'has', 'have',
+    'had', 'not', 'no', 'do', 'does', 'did', 'if', 'then', 'than', 'so', 'such',
+    'about', 'into', 'over', 'after', 'before', 'more', 'most', 'some', 'any',
+    'all', 'who', 'what', 'when', 'where', 'which', 'while', 'also', 'said', 'says'
+}
 
-def extract_keywords(text_tfidf, top_n=5):
-    if not vectorizer:
-        return ""
-    feature_names = vectorizer.get_feature_names_out()
-    row = text_tfidf.toarray()[0]
-    indices = np.argsort(row)[::-1]
-    top_indices = indices[:top_n]
-    keywords = [feature_names[i] for i in top_indices if row[i] > 0]
-    return " ".join(keywords)
 
-def verify_with_web(original_text, text_tfidf):
-    keywords = extract_keywords(text_tfidf, top_n=5)
-    
+def extract_keywords(text, top_n=5):
+    """Pick the most frequent meaningful words to use as a web search query (no ML)."""
+    words = re.findall(r"[a-zA-Z]{4,}", text.lower())
+    freq = {}
+    for w in words:
+        if w in STOPWORDS:
+            continue
+        freq[w] = freq.get(w, 0) + 1
+    ranked = sorted(freq, key=lambda w: freq[w], reverse=True)
+    return " ".join(ranked[:top_n])
+
+
+def text_overlap(a, b):
+    """Lightweight keyword-overlap score (0-100) between two texts — replaces TF-IDF similarity."""
+    wa = {w for w in re.findall(r"[a-zA-Z]{4,}", a.lower()) if w not in STOPWORDS}
+    wb = {w for w in re.findall(r"[a-zA-Z]{4,}", b.lower()) if w not in STOPWORDS}
+    if not wa or not wb:
+        return 0.0
+    return round(len(wa & wb) / len(wa) * 100, 1)
+
+
+def verify_with_web(original_text):
+    """Web search agent tool: find related articles and flag trusted-domain matches."""
+    keywords = extract_keywords(original_text, top_n=5)
+
     try:
         with DDGS() as ddgs:
             results = list(ddgs.text(keywords, max_results=5)) if keywords else []
             if not results:
-                query = original_text[:100]
-                results = list(ddgs.text(query, max_results=5))
-        
+                results = list(ddgs.text(original_text[:100], max_results=5))
+
         if not results:
-            return False, False, [], keywords
-            
+            return False, [], keywords
+
         sources = []
-        trusted_match_found = False
-        any_match_found = False
+        trusted_match = False
 
         for r in results:
             snippet = r.get("body", "")
-            snippet_clean = clean_text(snippet)
-            snippet_tfidf = vectorizer.transform([snippet_clean])
-
-            similarity = cosine_similarity(text_tfidf, snippet_tfidf)[0][0]
+            similarity = text_overlap(original_text, snippet)
 
             domain = urlparse(r["href"]).netloc.lower()
             if domain.startswith("www."):
                 domain = domain[4:]
-
             is_trusted = domain in TRUSTED_DOMAINS
 
-            if similarity > 0.20:
-                any_match_found = True
-                if is_trusted:
-                    trusted_match_found = True
+            if similarity > 15 and is_trusted:
+                trusted_match = True
 
             sources.append({
                 "title": r["title"],
                 "href": r["href"],
-                "similarity": round(similarity * 100, 1),
+                "similarity": similarity,
                 "is_trusted": is_trusted
             })
-            
+
         sources = sorted(sources, key=lambda x: x["similarity"], reverse=True)
-        return trusted_match_found, any_match_found, sources, keywords
+        return trusted_match, sources, keywords
     except Exception as e:
         print("Web search error:", e)
-        return False, False, [], ""
+        return False, [], ""
 
 
-def analyze_with_gemini(text, sources, ml_label, confidence_pct, trusted_verified):
-    # Sistemdeki GEMINI_API_KEY ortam değişkenini kontrol eder
+def analyze_with_gemini(text, sources, web_verified):
+    """The LLM brain: Gemini decides Real/Fake/Uncertain with a confidence and reasoning."""
     if not os.environ.get("GEMINI_API_KEY"):
         print("Hata: GEMINI_API_KEY ortam değişkeni set edilmemiş.")
-        return "Gemini API Key bulunamadı."
-        
+        return {"verdict": "Uncertain", "confidence": 0,
+                "reasoning": "Gemini API Key bulunamadı."}
+
     # Boş bırakıldığında otomatik olarak os.environ["GEMINI_API_KEY"] değerini okur
     try:
         client = genai.Client()
     except Exception as e:
         print("Gemini client error:", e)
-        return f"Gemini API hatası gerçekleşti: {str(e)}"
+        return {"verdict": "Uncertain", "confidence": 0,
+                "reasoning": f"Gemini API hatası gerçekleşti: {e}"}
 
     sources_context = ""
-    for s in sources[:3]:
+    for s in sources[:5]:
         trust = "trusted" if s["is_trusted"] else "unverified"
-        sources_context += f"\n  - {s['title']} — {s['similarity']}% match ({trust})"
+        sources_context += f"\n  - {s['title']} ({trust}, {s['similarity']}% keyword overlap)"
 
     prompt = (
-        "You are a fact-checking AI agent. Analyze this news snippet and determine if it is real or fake.\n\n"
-        f"ARTICLE:\n{text[:1200]}\n\n"
-        "ML MODEL SIGNALS:\n"
-        f"- Prediction: {ml_label}\n"
-        f"- Confidence: {confidence_pct}%\n"
-        f"- Trusted web verification: {'Yes' if trusted_verified else 'No'}\n\n"
+        "You are a fact-checking AI agent. Decide whether the following news text is real or fake.\n\n"
+        f"NEWS TEXT:\n{text[:1500]}\n\n"
         f"WEB SEARCH RESULTS:{sources_context if sources_context else ' none found'}\n\n"
-        "Provide:\n"
-        "1. Final verdict: Real / Fake / Uncertain\n"
-        "2. 2-3 sentences of reasoning\n"
-        "3. The strongest signal in the text supporting your verdict"
+        f"A trusted news source corroborates this: {'Yes' if web_verified else 'No'}\n\n"
+        "Weigh the writing style, plausibility, and whether reputable web sources corroborate the claims. "
+        "Respond ONLY with a JSON object using these keys:\n"
+        '  "verdict": one of "Real", "Fake", "Uncertain"\n'
+        '  "confidence": an integer from 0 to 100 (how sure you are)\n'
+        '  "reasoning": 2-4 sentences explaining your decision and the strongest signal'
     )
+
+    config = {"response_mime_type": "application/json"}
 
     # 503 (yoğunluk) gibi geçici hatalarda birkaç kez tekrar dener;
     # birincil model sürekli meşgulse yedek modele geçer.
@@ -146,79 +147,74 @@ def analyze_with_gemini(text, sources, ml_label, confidence_pct, trusted_verifie
                 response = client.models.generate_content(
                     model=model_name,
                     contents=prompt,
+                    config=config,
                 )
-                return response.text.strip() if response.text else None
             except Exception as e:
                 last_error = e
                 msg = str(e)
                 is_transient = "503" in msg or "UNAVAILABLE" in msg or "overloaded" in msg.lower()
                 print(f"Gemini API error (model={model_name}, attempt={attempt + 1}): {e}")
                 if not is_transient:
-                    # Kalıcı hata (hatalı key, kota, geçersiz istek) — tekrar denemeye gerek yok
-                    return f"Gemini API hatası gerçekleşti: {msg}"
+                    return {"verdict": "Uncertain", "confidence": 0,
+                            "reasoning": f"Gemini API hatası gerçekleşti: {msg}"}
                 if attempt < 2:
                     time.sleep(1.5 * (attempt + 1))  # 1.5s, sonra 3s bekle
+                continue
+
+            # İstek başarılı — JSON yanıtını ayrıştır
+            raw = (response.text or "").strip()
+            try:
+                data = json.loads(raw)
+                verdict = data.get("verdict", "Uncertain")
+                if verdict not in ("Real", "Fake", "Uncertain"):
+                    verdict = "Uncertain"
+                confidence = max(0, min(100, int(data.get("confidence", 0))))
+                reasoning = (data.get("reasoning") or "").strip() or "No reasoning returned."
+                return {"verdict": verdict, "confidence": confidence, "reasoning": reasoning}
+            except Exception:
+                # JSON ayrıştırılamadıysa ham metni gerekçe olarak göster
+                return {"verdict": "Uncertain", "confidence": 0,
+                        "reasoning": raw or "Gemini geçersiz bir yanıt döndü."}
 
     print("Gemini still unavailable after retries:", last_error)
-    return "Gemini şu anda çok yoğun, lütfen birkaç saniye sonra tekrar deneyin."
+    return {"verdict": "Uncertain", "confidence": 0,
+            "reasoning": "Gemini şu anda çok yoğun, lütfen birkaç saniye sonra tekrar deneyin."}
 
-
-@app.on_event("startup")
-def load_model():
-    global model, vectorizer
-    model_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'model.pkl')
-    vec_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'vectorizer.pkl')
-    
-    if os.path.exists(model_path) and os.path.exists(vec_path):
-        model = joblib.load(model_path)
-        vectorizer = joblib.load(vec_path)
-        print("Model and vectorizer loaded successfully.")
-    else:
-        print("Warning: Model or vectorizer not found. Please train the model first.")
 
 @app.post("/predict")
 def predict_news(news: NewsInput):
-    if not model or not vectorizer:
-        raise HTTPException(status_code=500, detail="Model is not loaded.")
-    
-    cleaned_input = clean_text(news.text)
-    text_tfidf = vectorizer.transform([cleaned_input])
-    prediction = model.predict(text_tfidf)[0]
-    label = "Real" if prediction == 1 else "Fake"
+    # 1. Web arama ajanı: ilgili kaynakları bul
+    web_verified, sources, keywords = verify_with_web(news.text)
 
-    raw_confidence = float(model.decision_function(text_tfidf)[0])
-    clamped = max(-3.0, min(3.0, raw_confidence))
-    confidence_pct = round((clamped + 3.0) / 6.0 * 100, 1)
-    
-    trusted_verified, any_verified, sources, keywords = verify_with_web(news.text, text_tfidf)
+    # 2. LLM beyni: Gemini gerçek/sahte kararını verir
+    result = analyze_with_gemini(news.text, sources, web_verified)
 
-    if label == "Real" and trusted_verified:
-        verdict = "Likely Real"
-        verdict_detail = "ML model and a trusted web source both support this."
-    elif label == "Fake" and not any_verified:
-        verdict = "Likely Fake"
-        verdict_detail = "ML model flagged this and no matching sources were found."
-    elif label == "Real" and not any_verified:
-        verdict = "Uncertain"
-        verdict_detail = "ML model says real but no corroborating sources found online."
+    verdict = result["verdict"]
+    if verdict == "Real":
+        prediction, verdict_label = "Real", "Likely Real"
+    elif verdict == "Fake":
+        prediction, verdict_label = "Fake", "Likely Fake"
     else:
-        verdict = "Uncertain"
-        verdict_detail = "ML model and web results give conflicting signals. Review sources."
+        prediction, verdict_label = "Uncertain", "Uncertain"
 
-    gemini_analysis = analyze_with_gemini(news.text, sources, label, confidence_pct, trusted_verified)
+    if web_verified:
+        verdict_detail = "A trusted web source corroborates this."
+    elif sources:
+        verdict_detail = "Related web results were found, but no trusted source strongly matched."
+    else:
+        verdict_detail = "No corroborating web sources were found."
 
     return {
-        "prediction": label,
-        "raw_score": int(prediction),
-        "confidence": confidence_pct,
-        "web_verified": trusted_verified,
-        "any_match_found": any_verified,
-        "verdict": verdict,
+        "prediction": prediction,
+        "confidence": result["confidence"],
+        "verdict": verdict_label,
         "verdict_detail": verdict_detail,
+        "web_verified": web_verified,
         "sources": sources,
         "keywords": keywords,
-        "gemini_analysis": gemini_analysis
+        "gemini_analysis": result["reasoning"]
     }
+
 
 if __name__ == "__main__":
     import uvicorn
