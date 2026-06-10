@@ -4,3 +4,4 @@ scikit-learn
 pandas
 joblib
 duckduckgo-search
+google-genai

@@ -17,30 +17,27 @@
     <div class="container">
         <header>
             <h1>News Authenticator</h1>
-            <p>Paste a news paragraph below and our AI will determine its authenticity.</p>
+            <p>Paste a news paragraph and our AI will analyze its authenticity.</p>
         </header>
 
         <main>
-            <div class="input-section">
-                <textarea id="newsInput" placeholder="Enter the news paragraph here..."></textarea>
-                <button id="analyzeBtn">Analyze News</button>
-            </div>
-
-            <div id="resultSection" class="result-section hidden">
-                <div class="spinner hidden" id="loadingSpinner"></div>
-                <div id="resultContent" class="result-content hidden">
-                    <h2 id="resultLabel">Real</h2>
-                    <p id="resultMessage">This news paragraph appears to be authentic.</p>
-                    
-                    <div id="webVerification" class="web-verification hidden">
-                        <h3 id="webBadge">✅ Verified on the Web</h3>
-                        <p class="search-keywords" id="searchKeywords"></p>
-                        <ul id="sourceList" class="source-list"></ul>
+            <div id="chatWindow" class="chat-window">
+                <div class="message bot-message">
+                    <div class="bubble">
+                        👋 Hi! Paste a news paragraph below (at least 50 words) and I'll tell you whether it looks real or fake — with reasoning and web sources.
                     </div>
                 </div>
             </div>
+
+            <div class="input-section">
+                <textarea id="newsInput" placeholder="Enter the news paragraph here (minimum 50 words)..."></textarea>
+                <div class="input-bar">
+                    <span id="wordCounter" class="word-counter">0 / 50 words minimum</span>
+                    <button id="analyzeBtn" disabled>Analyze News</button>
+                </div>
+            </div>
         </main>
-        
+
         <footer>
             <p>Powered by Me</p>
         </footer>

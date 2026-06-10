@@ -1,41 +1,205 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const analyzeBtn = document.getElementById('analyzeBtn');
+    const chatWindow = document.getElementById('chatWindow');
     const newsInput = document.getElementById('newsInput');
-    const resultSection = document.getElementById('resultSection');
-    const loadingSpinner = document.getElementById('loadingSpinner');
-    const resultContent = document.getElementById('resultContent');
-    const resultLabel = document.getElementById('resultLabel');
-    const resultMessage = document.getElementById('resultMessage');
-
-    // Web Verification Elements
-    const webVerification = document.getElementById('webVerification');
-    const webBadge = document.getElementById('webBadge');
-    const searchKeywords = document.getElementById('searchKeywords');
-    const sourceList = document.getElementById('sourceList');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const wordCounter = document.getElementById('wordCounter');
 
     const API_URL = 'http://127.0.0.1:8000/predict';
+    const MIN_WORDS = 50;
 
-    analyzeBtn.addEventListener('click', async () => {
-        const text = newsInput.value.trim();
-        if (!text) {
-            alert('Please enter a paragraph of news to analyze.');
-            return;
+    // --- Word counting / validation ---
+    function countWords(text) {
+        const trimmed = text.trim();
+        if (!trimmed) return 0;
+        return trimmed.split(/\s+/).length;
+    }
+
+    function updateCounter() {
+        const n = countWords(newsInput.value);
+        if (n >= MIN_WORDS) {
+            wordCounter.textContent = n + ' words';
+            wordCounter.classList.add('ok');
+            analyzeBtn.disabled = false;
+        } else {
+            wordCounter.textContent = n + ' / ' + MIN_WORDS + ' words minimum';
+            wordCounter.classList.remove('ok');
+            analyzeBtn.disabled = true;
+        }
+    }
+
+    newsInput.addEventListener('input', updateCounter);
+    updateCounter();
+
+    // --- Chat helpers ---
+    function scrollToBottom() {
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+
+    function addUserMessage(text) {
+        const msg = document.createElement('div');
+        msg.className = 'message user-message';
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        bubble.textContent = text;
+        msg.appendChild(bubble);
+        chatWindow.appendChild(msg);
+        scrollToBottom();
+    }
+
+    function addBotLoading() {
+        const msg = document.createElement('div');
+        msg.className = 'message bot-message';
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        bubble.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
+        msg.appendChild(bubble);
+        chatWindow.appendChild(msg);
+        scrollToBottom();
+        return bubble; // we replace its content when the result arrives
+    }
+
+    // Build the analysis result inside a bot bubble (DOM nodes — safe from injection)
+    function renderResult(bubble, data) {
+        bubble.innerHTML = '';
+        const isReal = data.prediction === 'Real';
+
+        // Verdict badge
+        const verdict = data.verdict || 'Uncertain';
+        const badge = document.createElement('span');
+        badge.className = 'verdict-badge';
+        if (verdict === 'Likely Real') badge.classList.add('real');
+        else if (verdict === 'Likely Fake') badge.classList.add('fake');
+        else badge.classList.add('uncertain');
+        badge.textContent = verdict;
+        bubble.appendChild(badge);
+
+        // ML prediction line
+        const mlLine = document.createElement('p');
+        mlLine.className = 'ml-line';
+        mlLine.textContent = 'ML Prediction: ' + data.prediction +
+            (isReal ? ' — appears authentic.' : ' — appears fabricated.');
+        bubble.appendChild(mlLine);
+
+        // Confidence bar
+        const conf = data.confidence != null ? data.confidence : 50;
+        const wrap = document.createElement('div');
+        wrap.className = 'confidence-bar-wrap';
+        wrap.innerHTML =
+            '<span class="confidence-label">ML Confidence</span>' +
+            '<div class="confidence-bar"><div class="confidence-fill"></div></div>' +
+            '<span class="confidence-val"></span>';
+        bubble.appendChild(wrap);
+        wrap.querySelector('.confidence-fill').style.width = conf + '%';
+        wrap.querySelector('.confidence-val').textContent = conf + '%';
+
+        if (data.verdict_detail) {
+            const detail = document.createElement('p');
+            detail.className = 'verdict-detail';
+            detail.textContent = data.verdict_detail;
+            bubble.appendChild(detail);
         }
 
-        // Show loading state
-        resultSection.classList.remove('hidden');
-        resultContent.classList.add('hidden');
-        if (webVerification) webVerification.classList.add('hidden');
-        loadingSpinner.classList.remove('hidden');
-        if (sourceList) sourceList.innerHTML = ''; // Clear previous sources
-        if (searchKeywords) searchKeywords.textContent = ''; // Clear previous keywords
+        // Web verification
+        const web = document.createElement('div');
+        web.className = 'web-verification';
+        const webBadge = document.createElement('h3');
+
+        if (data.web_verified && data.sources && data.sources.length > 0) {
+            webBadge.textContent = '✅ Verified by Web Search Agent';
+            webBadge.style.color = '#10b981';
+        } else if (!isReal) {
+            webBadge.textContent = '❌ No semantic match found on trusted web sources';
+            webBadge.style.color = '#ef4444';
+        } else {
+            webBadge.textContent = '⚠️ Could not semantically verify this text on the web.';
+            webBadge.style.color = '#f59e0b';
+        }
+        web.appendChild(webBadge);
+
+        if (data.keywords) {
+            const kw = document.createElement('p');
+            kw.className = 'search-keywords';
+            kw.textContent = 'Searched Keywords: "' + data.keywords + '"';
+            web.appendChild(kw);
+        }
+
+        if (data.sources && data.sources.length > 0) {
+            const ul = document.createElement('ul');
+            ul.className = 'source-list';
+            data.sources.forEach(source => {
+                const li = document.createElement('li');
+                const a = document.createElement('a');
+                a.href = source.href;
+                a.target = '_blank';
+                a.rel = 'noopener noreferrer';
+
+                const titleSpan = document.createElement('span');
+                titleSpan.textContent = source.title;
+                a.appendChild(titleSpan);
+
+                const badges = document.createElement('div');
+                badges.className = 'source-badges';
+                const sim = document.createElement('span');
+                sim.className = 'badge similarity-badge';
+                sim.textContent = source.similarity + '% Match';
+                badges.appendChild(sim);
+                if (source.is_trusted) {
+                    const trusted = document.createElement('span');
+                    trusted.className = 'badge trusted-badge';
+                    trusted.textContent = '⭐ Trusted Source';
+                    badges.appendChild(trusted);
+                }
+                a.appendChild(badges);
+                li.appendChild(a);
+                ul.appendChild(li);
+            });
+            web.appendChild(ul);
+        }
+        bubble.appendChild(web);
+
+        // Gemini AI analysis
+        if (data.gemini_analysis) {
+            const card = document.createElement('div');
+            card.className = 'gemini-card';
+            const h3 = document.createElement('h3');
+            h3.textContent = '✨ Gemini AI Analysis';
+            const p = document.createElement('p');
+            p.className = 'gemini-text';
+            p.textContent = data.gemini_analysis;
+            card.appendChild(h3);
+            card.appendChild(p);
+            bubble.appendChild(card);
+        }
+
+        scrollToBottom();
+    }
+
+    function renderError(bubble, message) {
+        bubble.innerHTML = '';
+        const err = document.createElement('p');
+        err.className = 'error-text';
+        err.textContent = '⚠️ ' + message;
+        bubble.appendChild(err);
+        scrollToBottom();
+    }
+
+    // --- Submit ---
+    async function analyze() {
+        const text = newsInput.value.trim();
+        if (countWords(text) < MIN_WORDS) {
+            return; // button is disabled below the minimum anyway
+        }
+
+        addUserMessage(text);
+        newsInput.value = '';
+        updateCounter();
+
+        const loadingBubble = addBotLoading();
 
         try {
             const response = await fetch(API_URL, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ text: text })
             });
 
@@ -44,83 +208,19 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const data = await response.json();
-
-            // Hide spinner and show result
-            loadingSpinner.classList.add('hidden');
-            resultContent.classList.remove('hidden');
-
-            const isReal = data.prediction === 'Real';
-
-            // Set Linguistic Prediction
-            resultLabel.textContent = "AI Analysis: " + data.prediction;
-            resultLabel.className = ''; // Reset classes
-            resultLabel.classList.add(isReal ? 'real' : 'fake');
-
-            resultMessage.textContent = isReal
-                ? 'Based on writing style, this appears authentic.'
-                : 'Caution: Based on writing style, this appears fabricated.';
-
-            // Set Web Verification Data
-            if (webVerification) {
-                if (data.keywords && searchKeywords) {
-                    searchKeywords.textContent = 'Searched Keywords: "' + data.keywords + '"';
-                }
-
-                if (data.web_verified && data.sources.length > 0) {
-                    webVerification.classList.remove('hidden');
-                    webBadge.textContent = '✅ Verified by Web Search Agent';
-                    webBadge.style.color = '#10b981'; // Success green
-
-                    data.sources.forEach(source => {
-                        const li = document.createElement('li');
-                        const a = document.createElement('a');
-                        a.href = source.href;
-                        a.target = '_blank';
-                        a.style.color = '#6366f1';
-                        a.style.textDecoration = 'none';
-                        a.style.display = 'flex';
-                        a.style.justifyContent = 'space-between';
-                        a.style.alignItems = 'center';
-
-                        let titleHTML = `<span>${source.title}</span>`;
-                        let badgesHTML = `<div class="source-badges">`;
-
-                        // Semantic Similarity Badge
-                        badgesHTML += `<span class="badge similarity-badge">${source.similarity}% Match</span>`;
-
-                        // Trusted Domain Badge
-                        if (source.is_trusted) {
-                            badgesHTML += `<span class="badge trusted-badge">⭐ Trusted Source</span>`;
-                        }
-
-                        badgesHTML += `</div>`;
-
-                        a.innerHTML = titleHTML + badgesHTML;
-                        li.appendChild(a);
-                        sourceList.appendChild(li);
-                    });
-                } else if (!isReal) {
-                    // Fake and not on web
-                    webVerification.classList.remove('hidden');
-                    webBadge.textContent = '❌ No semantic match found on trusted web sources';
-                    webBadge.style.color = '#ef4444'; // Danger red
-                } else {
-                    // Real linguistically, but not on web
-                    webVerification.classList.remove('hidden');
-                    webBadge.textContent = '⚠️ Could not semantically verify this specific text on the web.';
-                    webBadge.style.color = '#f59e0b'; // Warning yellow
-                }
-            }
-
+            renderResult(loadingBubble, data);
         } catch (error) {
             console.error('Error:', error);
-            loadingSpinner.classList.add('hidden');
-            resultContent.classList.remove('hidden');
+            renderError(loadingBubble, 'Failed to connect to the AI service. Make sure the backend is running.');
+        }
+    }
 
-            resultLabel.textContent = 'Error';
-            resultLabel.className = '';
-            resultLabel.classList.add('fake');
-            resultMessage.textContent = 'Failed to connect to the AI service. Make sure the backend is running.';
+    analyzeBtn.addEventListener('click', analyze);
+
+    // Ctrl+Enter submits
+    newsInput.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && !analyzeBtn.disabled) {
+            analyze();
         }
     });
 });
