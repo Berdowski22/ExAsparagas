@@ -374,6 +374,48 @@ footer {
     white-space: pre-wrap;
 }
 
+.gemini-summary {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-main);
+    line-height: 1.5;
+    margin-bottom: 10px;
+}
+
+.gemini-points {
+    margin: 0 0 10px 0;
+    padding-left: 0;
+    list-style: none;
+}
+
+.gemini-points li {
+    position: relative;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    line-height: 1.55;
+    margin-bottom: 6px;
+    padding-left: 16px;
+}
+
+.gemini-points li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: #8ab4f8;
+    font-weight: 700;
+}
+
+.gemini-recommendation {
+    margin-top: 10px;
+    padding: 8px 10px;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--text-main);
+    background: rgba(66, 133, 244, 0.12);
+    border-left: 3px solid #8ab4f8;
+    border-radius: 6px;
+}
+
 .error-text {
     color: #f87171;
     font-size: 0.9rem;

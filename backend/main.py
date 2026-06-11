@@ -7,7 +7,7 @@ import json
 from google import genai
 from urllib.parse import urlparse
 from fastapi.middleware.cors import CORSMiddleware
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 from dotenv import load_dotenv
 
 # .env dosyasındaki değişkenleri os.environ'a yükler (GEMINI_API_KEY vb.)
@@ -27,11 +27,27 @@ class NewsInput(BaseModel):
     text: str
 
 TRUSTED_DOMAINS = {
+    # International / English
     'bbc.com', 'bbc.co.uk', 'reuters.com', 'apnews.com',
     'nytimes.com', 'washingtonpost.com', 'nasa.gov',
     'cnn.com', 'npr.org', 'theguardian.com', 'wsj.com',
-    'bloomberg.com', 'cnbc.com', 'aljazeera.com'
+    'bloomberg.com', 'cnbc.com', 'aljazeera.com',
+    'dw.com', 'france24.com', 'euronews.com', 'ft.com',
+    'economist.com', 'time.com', 'abcnews.go.com',
+    'cbsnews.com', 'nbcnews.com', 'politico.com', 'forbes.com',
+    # Turkish
+    'aa.com.tr', 'trthaber.com', 'trt.net.tr', 'ntv.com.tr',
+    'cnnturk.com', 'haberturk.com', 'hurriyet.com.tr',
+    'milliyet.com.tr', 'sozcu.com.tr', 'sabah.com.tr',
+    'dha.com.tr'
 }
+
+# verify_with_web bunları doğrudan `site:` aramasıyla hedefler — en geniş
+# kapsamlı/otoriter kaynaklar; haberin tam kaynağını şansa bırakmadan bulmak için.
+PRIORITY_TRUSTED_DOMAINS = [
+    'reuters.com', 'apnews.com', 'bbc.com', 'theguardian.com',
+    'aljazeera.com', 'aa.com.tr', 'trthaber.com', 'ntv.com.tr',
+]
 
 STOPWORDS = {
     'the', 'a', 'an', 'and', 'or', 'but', 'of', 'to', 'in', 'on', 'for', 'with',
@@ -65,46 +81,76 @@ def text_overlap(a, b):
     return round(len(wa & wb) / len(wa) * 100, 1)
 
 
-def verify_with_web(original_text):
-    """Web search agent tool: find related articles and flag trusted-domain matches."""
-    keywords = extract_keywords(original_text, top_n=5)
-
+def _ddg_search(query, max_results=4):
+    """Tek bir DuckDuckGo metin araması; hata/limit durumunda boş liste döner."""
     try:
         with DDGS() as ddgs:
-            results = list(ddgs.text(keywords, max_results=5)) if keywords else []
-            if not results:
-                results = list(ddgs.text(original_text[:100], max_results=5))
-
-        if not results:
-            return False, [], keywords
-
-        sources = []
-        trusted_match = False
-
-        for r in results:
-            snippet = r.get("body", "")
-            similarity = text_overlap(original_text, snippet)
-
-            domain = urlparse(r["href"]).netloc.lower()
-            if domain.startswith("www."):
-                domain = domain[4:]
-            is_trusted = domain in TRUSTED_DOMAINS
-
-            if similarity > 15 and is_trusted:
-                trusted_match = True
-
-            sources.append({
-                "title": r["title"],
-                "href": r["href"],
-                "similarity": similarity,
-                "is_trusted": is_trusted
-            })
-
-        sources = sorted(sources, key=lambda x: x["similarity"], reverse=True)
-        return trusted_match, sources, keywords
+            return list(ddgs.text(query, max_results=max_results))
     except Exception as e:
-        print("Web search error:", e)
-        return False, [], ""
+        print(f"DDG search error (query={query!r}):", e)
+        return []
+
+
+def _normalize_domain(href):
+    """URL'den 'www.' önekini atılmış küçük harf alan adını çıkarır."""
+    domain = urlparse(href).netloc.lower()
+    if domain.startswith("www."):
+        domain = domain[4:]
+    return domain
+
+
+def verify_with_web(original_text):
+    """Web search agent tool: find related articles and flag trusted-domain matches.
+
+    İki arama yapar:
+      1. Genel arama — web genelinde ilgili sonuçlar (bağlam için).
+      2. Hedefli `site:` araması — tek bir birleşik OR sorgusuyla öncelikli güvenilir
+         kaynaklarda haberin tam makalesini doğrudan arar, doğru kaynağı şansa bırakmaz.
+    """
+    keywords = extract_keywords(original_text, top_n=5)
+    query = keywords or original_text[:100]
+
+    # 1) Genel arama — web genelinde ilgili sonuçlar (bağlam için)
+    generic = _ddg_search(query, max_results=5)
+
+    # 2) Hedefli güvenilir arama — tek bir birleşik `site:` OR sorgusuyla öncelikli
+    #    güvenilir kaynaklarda haberin tam makalesini doğrudan arar (şansa bırakmaz)
+    site_filter = " OR ".join(f"site:{d}" for d in PRIORITY_TRUSTED_DOMAINS)
+    trusted = _ddg_search(f"{query} ({site_filter})", max_results=8)
+
+    all_results = generic + trusted
+    if not all_results:
+        return False, [], keywords
+
+    sources = []
+    trusted_match = False
+    seen = set()
+
+    for r in all_results:
+        href = r.get("href")
+        if not href or href in seen:
+            continue
+        seen.add(href)
+
+        snippet = r.get("body", "")
+        similarity = text_overlap(original_text, snippet)
+        domain = _normalize_domain(href)
+        is_trusted = domain in TRUSTED_DOMAINS
+
+        if similarity > 15 and is_trusted:
+            trusted_match = True
+
+        sources.append({
+            "title": r.get("title", domain),
+            "href": href,
+            "similarity": similarity,
+            "is_trusted": is_trusted,
+        })
+
+    # Önce benzerliğe, eşitlikte güvenilir olana göre sırala; ilk 8'i tut
+    sources = sorted(sources, key=lambda x: (x["similarity"], x["is_trusted"]), reverse=True)
+    sources = sources[:8]
+    return trusted_match, sources, keywords
 
 
 def analyze_with_gemini(text, sources, web_verified):
@@ -128,21 +174,36 @@ def analyze_with_gemini(text, sources, web_verified):
         sources_context += f"\n  - {s['title']} ({trust}, {s['similarity']}% keyword overlap)"
 
     prompt = (
-        "You are a fact-checking AI agent. Decide whether the following news text is real or fake.\n\n"
-        f"NEWS TEXT:\n{text[:1500]}\n\n"
+        "You are a fact-checking AI agent that ONLY analyzes news. "
+        "Your single job is to judge whether a news report/claim about real-world events is real or fake.\n\n"
+        "FIRST, decide if the input is actually a news statement (a claim or report about real-world "
+        "events, people, places, or facts). It is NOT news if it is a question, a request/command, "
+        "a poem or story, source code, a personal opinion, small talk, or meaningless gibberish.\n\n"
+        f"INPUT TEXT:\n{text[:1500]}\n\n"
         f"WEB SEARCH RESULTS:{sources_context if sources_context else ' none found'}\n\n"
         f"A trusted news source corroborates this: {'Yes' if web_verified else 'No'}\n\n"
-        "Weigh the writing style, plausibility, and whether reputable web sources corroborate the claims. "
+        "If the input is NOT news, set \"is_news\" to false and do not judge real/fake. "
+        "If it IS news, weigh the writing style, plausibility, and whether reputable web sources "
+        "corroborate the claims.\n\n"
+        "Be genuinely helpful and conversational with the user — explain your thinking clearly, "
+        "point out exactly what makes the claim credible or suspicious, and tell them what they "
+        "should do next. Write to the reader directly, not as a dry report.\n\n"
         "Respond ONLY with a JSON object using these keys:\n"
-        '  "verdict": one of "Real", "Fake", "Uncertain"\n'
+        '  "is_news": true if the input is a news claim/report, otherwise false\n'
+        '  "verdict": one of "Real", "Fake", "Uncertain" (use "Uncertain" when is_news is false)\n'
         '  "confidence": an integer from 0 to 100 (how sure you are)\n'
-        '  "reasoning": 2-4 sentences explaining your decision and the strongest signal'
+        '  "summary": one clear sentence giving the bottom line for the user\n'
+        '  "key_points": an array of 2-4 short strings, each a concrete signal that supports or '
+        "undermines the claim (mention sources, dates, numbers, or wording where relevant)\n"
+        '  "recommendation": one actionable sentence telling the user what to do next '
+        "(e.g. which source to cross-check, what detail to be skeptical of)\n"
+        '  "reasoning": 2-4 sentences explaining your decision and the strongest signal. '
+        "If is_news is false, briefly explain that the input is not news."
     )
 
     config = {"response_mime_type": "application/json"}
 
     # 503 (yoğunluk) gibi geçici hatalarda birkaç kez tekrar dener;
-    # birincil model sürekli meşgulse yedek modele geçer.
     models = ["gemini-2.5-flash", "gemini-2.0-flash"]
     last_error = None
     for model_name in models:
@@ -169,15 +230,28 @@ def analyze_with_gemini(text, sources, web_verified):
             raw = (response.text or "").strip()
             try:
                 data = json.loads(raw)
+                is_news = bool(data.get("is_news", True))
                 verdict = data.get("verdict", "Uncertain")
                 if verdict not in ("Real", "Fake", "Uncertain"):
                     verdict = "Uncertain"
                 confidence = max(0, min(100, int(data.get("confidence", 0))))
                 reasoning = (data.get("reasoning") or "").strip() or "No reasoning returned."
-                return {"verdict": verdict, "confidence": confidence, "reasoning": reasoning}
+                summary = (data.get("summary") or "").strip()
+                recommendation = (data.get("recommendation") or "").strip()
+                # key_points'i temizle: yalnızca boş olmayan string'leri al (en fazla 4)
+                raw_points = data.get("key_points") or []
+                if not isinstance(raw_points, list):
+                    raw_points = []
+                key_points = [str(p).strip() for p in raw_points if str(p).strip()][:4]
+                if not is_news:
+                    verdict = "Uncertain"
+                return {"is_news": is_news, "verdict": verdict, "confidence": confidence,
+                        "summary": summary, "key_points": key_points,
+                        "recommendation": recommendation, "reasoning": reasoning}
             except Exception:
                 # JSON ayrıştırılamadıysa ham metni gerekçe olarak göster
-                return {"verdict": "Uncertain", "confidence": 0,
+                return {"is_news": True, "verdict": "Uncertain", "confidence": 0,
+                        "summary": "", "key_points": [], "recommendation": "",
                         "reasoning": raw or "Gemini geçersiz bir yanıt döndü."}
 
     print("Gemini still unavailable after retries:", last_error)
@@ -192,6 +266,19 @@ def predict_news(news: NewsInput):
 
     # 2. LLM beyni: Gemini gerçek/sahte kararını verir
     result = analyze_with_gemini(news.text, sources, web_verified)
+
+    # Girdi haber değilse: bu araç yalnızca haber analiz eder, kibarca reddet
+    if not result.get("is_news", True):
+        return {
+            "prediction": "Not News",
+            "confidence": 0,
+            "verdict": "Not News",
+            "verdict_detail": "This tool only fact-checks news. Please paste a news report or claim.",
+            "web_verified": False,
+            "sources": [],
+            "keywords": keywords,
+            "gemini_analysis": result["reasoning"]
+        }
 
     verdict = result["verdict"]
     if verdict == "Real":
@@ -216,6 +303,9 @@ def predict_news(news: NewsInput):
         "web_verified": web_verified,
         "sources": sources,
         "keywords": keywords,
+        "summary": result.get("summary", ""),
+        "key_points": result.get("key_points", []),
+        "recommendation": result.get("recommendation", ""),
         "gemini_analysis": result["reasoning"]
     }
 

@@ -1,8 +1,6 @@
 fastapi
 uvicorn
-scikit-learn
-pandas
 joblib
-duckduckgo-search
+ddgs
 google-genai
 python-dotenv

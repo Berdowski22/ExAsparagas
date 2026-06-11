@@ -5,7 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const wordCounter = document.getElementById('wordCounter');
 
     const API_URL = 'http://127.0.0.1:8000/predict';
-    const MIN_WORDS = 50;
+    const MIN_WORDS = 20;
 
     // --- Word counting / validation ---
     function countWords(text) {
@@ -61,6 +61,28 @@ document.addEventListener('DOMContentLoaded', () => {
     // Build the analysis result inside a bot bubble (DOM nodes — safe from injection)
     function renderResult(bubble, data) {
         bubble.innerHTML = '';
+
+        // Input was not news — this tool only fact-checks news, so show a clean notice
+        if (data.prediction === 'Not News') {
+            const badge = document.createElement('span');
+            badge.className = 'verdict-badge uncertain';
+            badge.textContent = 'Not News';
+            bubble.appendChild(badge);
+
+            const note = document.createElement('p');
+            note.className = 'ml-line';
+            note.textContent = '📰 ' + (data.verdict_detail ||
+                'This tool only fact-checks news. Please paste a news report or claim.');
+            bubble.appendChild(note);
+
+            if (data.gemini_analysis) {
+                const why = document.createElement('p');
+                why.className = 'verdict-detail';
+                why.textContent = data.gemini_analysis;
+                bubble.appendChild(why);
+            }
+            return;
+        }
 
         // Verdict badge
         const verdict = data.verdict || 'Uncertain';
@@ -158,16 +180,49 @@ document.addEventListener('DOMContentLoaded', () => {
         bubble.appendChild(web);
 
         // Gemini AI analysis
-        if (data.gemini_analysis) {
+        if (data.gemini_analysis || data.summary || (data.key_points && data.key_points.length)) {
             const card = document.createElement('div');
             card.className = 'gemini-card';
             const h3 = document.createElement('h3');
             h3.textContent = '✨ Gemini AI Analysis';
-            const p = document.createElement('p');
-            p.className = 'gemini-text';
-            p.textContent = data.gemini_analysis;
             card.appendChild(h3);
-            card.appendChild(p);
+
+            // Bottom-line summary (bold lead)
+            if (data.summary) {
+                const sum = document.createElement('p');
+                sum.className = 'gemini-summary';
+                sum.textContent = data.summary;
+                card.appendChild(sum);
+            }
+
+            // Key signals as a bullet list
+            if (data.key_points && data.key_points.length > 0) {
+                const ul = document.createElement('ul');
+                ul.className = 'gemini-points';
+                data.key_points.forEach(point => {
+                    const li = document.createElement('li');
+                    li.textContent = point;
+                    ul.appendChild(li);
+                });
+                card.appendChild(ul);
+            }
+
+            // Full reasoning paragraph
+            if (data.gemini_analysis) {
+                const p = document.createElement('p');
+                p.className = 'gemini-text';
+                p.textContent = data.gemini_analysis;
+                card.appendChild(p);
+            }
+
+            // Actionable recommendation
+            if (data.recommendation) {
+                const rec = document.createElement('p');
+                rec.className = 'gemini-recommendation';
+                rec.textContent = '👉 ' + data.recommendation;
+                card.appendChild(rec);
+            }
+
             bubble.appendChild(card);
         }
 
