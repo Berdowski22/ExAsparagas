@@ -5,3 +5,4 @@ pandas
 joblib
 duckduckgo-search
 google-genai
+python-dotenv

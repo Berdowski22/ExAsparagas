@@ -8,6 +8,10 @@ from google import genai
 from urllib.parse import urlparse
 from fastapi.middleware.cors import CORSMiddleware
 from duckduckgo_search import DDGS
+from dotenv import load_dotenv
+
+# .env dosyasındaki değişkenleri os.environ'a yükler (GEMINI_API_KEY vb.)
+load_dotenv()
 
 app = FastAPI()
 
