@@ -192,7 +192,10 @@ def analyze_with_gemini(text, sources, web_verified):
         '  "is_news": true if the input is a news claim/report, otherwise false\n'
         '  "verdict": one of "Real", "Fake", "Uncertain" (use "Uncertain" when is_news is false)\n'
         '  "confidence": an integer from 0 to 100 (how sure you are)\n'
-        '  "summary": one clear sentence giving the bottom line for the user\n'
+        '  "summary": ONE sentence that directly answers the user as if replying to '
+        '"is this real or fake?". It MUST open with a clear verdict word and address the '
+        'reader: start with "Yes — this appears to be REAL:" if real, "No — this looks FAKE:" '
+        'if fake, or "It is unclear:" if uncertain, then a short reason. Be direct, not a dry report.\n'
         '  "key_points": an array of 2-4 short strings, each a concrete signal that supports or '
         "undermines the claim (mention sources, dates, numbers, or wording where relevant)\n"
         '  "recommendation": one actionable sentence telling the user what to do next '
