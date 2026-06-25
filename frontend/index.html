@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ExAsparagas</title>
+    <title>ExAsparagas — Real or Fake News?</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
 </head>
@@ -16,15 +17,69 @@
 
     <div class="container">
         <header>
-            <h1>News Authenticator</h1>
-            <p>Paste a news paragraph and our AI will analyze its authenticity.</p>
+            <div class="brand">
+                <svg class="brand-mark" viewBox="0 0 120 120" role="img" aria-label="ExAsparagas logo" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="shieldGrad" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0" stop-color="#1e293b"/>
+                            <stop offset="1" stop-color="#0e7490"/>
+                        </linearGradient>
+                        <linearGradient id="chaosGrad" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0" stop-color="#ef4444"/>
+                            <stop offset="1" stop-color="#f59e0b"/>
+                        </linearGradient>
+                    </defs>
+
+                    <!-- Left: chaotic / unverified news -->
+                    <g class="mark-chaos" fill="none" stroke="url(#chaosGrad)" stroke-width="2.4" stroke-linecap="round">
+                        <path d="M6 44 C20 38, 24 54, 38 48"/>
+                        <path d="M4 60 C20 54, 26 70, 40 62"/>
+                        <path d="M8 76 C22 72, 26 86, 40 78"/>
+                    </g>
+                    <text x="14" y="40" class="mark-q">?</text>
+                    <text x="10" y="92" class="mark-q">?</text>
+
+                    <!-- Central shield -->
+                    <path class="mark-shield" d="M60 14 L88 24 V58 C88 78, 75 92, 60 100 C45 92, 32 78, 32 58 V24 Z"
+                          fill="url(#shieldGrad)" stroke="#5eead4" stroke-width="2"/>
+
+                    <!-- Robot head inside shield -->
+                    <g class="mark-robot">
+                        <line x1="52" y1="40" x2="52" y2="33" stroke="#cbd5e1" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="68" y1="40" x2="68" y2="33" stroke="#cbd5e1" stroke-width="2" stroke-linecap="round"/>
+                        <circle cx="52" cy="32" r="2.2" fill="#5eead4"/>
+                        <circle cx="68" cy="32" r="2.2" fill="#5eead4"/>
+                        <rect x="46" y="42" width="28" height="22" rx="7" fill="#e2e8f0"/>
+                        <circle cx="55" cy="53" r="3" fill="#0e7490"/>
+                        <circle cx="65" cy="53" r="3" fill="#0e7490"/>
+                        <path d="M55 59 Q60 62 65 59" stroke="#0e7490" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+                    </g>
+
+                    <!-- Right: verified / circuit checkmarks -->
+                    <g class="mark-verify" fill="none" stroke="#22d3ee" stroke-width="2.2" stroke-linecap="round">
+                        <path d="M88 42 H104 M88 60 H110 M88 78 H104"/>
+                    </g>
+                    <g class="mark-checks" fill="#22d3ee">
+                        <circle cx="110" cy="42" r="5"/>
+                        <circle cx="115" cy="60" r="5"/>
+                        <circle cx="110" cy="78" r="5"/>
+                    </g>
+                    <g stroke="#0f172a" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M107.6 42 l1.6 1.8 l3 -3.4"/>
+                        <path d="M112.6 60 l1.6 1.8 l3 -3.4"/>
+                        <path d="M107.6 78 l1.6 1.8 l3 -3.4"/>
+                    </g>
+                </svg>
+                <h1 class="brand-name">ExAsparagas</h1>
+            </div>
+            <p class="tagline">Is that news <span class="tag-real">real</span> or <span class="tag-fake">fake</span>?</p>
         </header>
 
         <main>
             <div id="chatWindow" class="chat-window">
                 <div class="message bot-message">
                     <div class="bubble">
-                        👋 Hi! Paste a news paragraph below (at least 20 words) and I'll tell you whether it looks real or fake — with reasoning and web sources.
+                        🤔 Not sure if that news is real? Paste it below (at least 20 words) and find out — I'll tell you whether it looks real or fake, with reasoning and web sources.
                     </div>
                 </div>
             </div>
@@ -33,13 +88,17 @@
                 <textarea id="newsInput" placeholder="Enter the news paragraph here (minimum 20 words)..."></textarea>
                 <div class="input-bar">
                     <span id="wordCounter" class="word-counter">0 / 20 words minimum</span>
-                    <button id="analyzeBtn" disabled>Analyze News</button>
+                    <button id="analyzeBtn" disabled>
+                        <span class="btn-icon">🔍</span>
+                        <span class="btn-text">Real or Fake?</span>
+                    </button>
                 </div>
             </div>
         </main>
 
         <footer>
-            <p>Powered by Gemini</p>
+            <p class="footer-disclaimer">⚠️ AI can make mistakes — always double-check important news with the cited sources.</p>
+            <p class="footer-meta">ExAsparagas &copy; 2026 · Powered by <span class="footer-accent">Gemini</span></p>
         </footer>
     </div>
 

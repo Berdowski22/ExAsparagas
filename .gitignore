@@ -3,3 +3,4 @@
 # Environment variables (API keys)
 .env
 backend/.env
+frontend/favicon.svg
