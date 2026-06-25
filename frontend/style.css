@@ -101,20 +101,45 @@ header {
     font-size: 13px;
 }
 
-/* Subtle life: chaos drifts, checks pulse */
-.mark-chaos { animation: chaosDrift 4s ease-in-out infinite alternate; }
-.mark-checks circle { animation: checkPulse 2.4s ease-in-out infinite; }
-.mark-checks circle:nth-child(2) { animation-delay: 0.4s; }
-.mark-checks circle:nth-child(3) { animation-delay: 0.8s; }
+/* Right side: lines draw OUT of the shield, then the check pops in after */
+.mark-verify .vline {
+    fill: none;
+    stroke: #22d3ee;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: drawLine 3.6s ease-in-out infinite;
+}
+.mark-verify .vline:nth-child(2) { animation-delay: 0.45s; }
+.mark-verify .vline:nth-child(3) { animation-delay: 0.9s; }
 
-@keyframes chaosDrift {
-    from { transform: translateX(0); }
-    to { transform: translateX(-2px); }
+.mark-checks .check {
+    opacity: 0;
+    transform: scale(0);
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: popCheck 3.6s ease-in-out infinite;
+}
+.mark-checks .check:nth-child(2) { animation-delay: 0.45s; }
+.mark-checks .check:nth-child(3) { animation-delay: 0.9s; }
+
+/* Line grows from the shield edge outward */
+@keyframes drawLine {
+    0%   { stroke-dashoffset: 1; opacity: 0; }
+    8%   { opacity: 1; }
+    28%  { stroke-dashoffset: 0; opacity: 1; }
+    88%  { stroke-dashoffset: 0; opacity: 1; }
+    100% { stroke-dashoffset: 0; opacity: 0; }
 }
 
-@keyframes checkPulse {
-    0%, 100% { opacity: 0.85; }
-    50% { opacity: 1; }
+/* Check appears only after its line has reached the tip */
+@keyframes popCheck {
+    0%, 28% { opacity: 0; transform: scale(0); }
+    38%     { opacity: 1; transform: scale(1.25); }
+    46%     { transform: scale(1); }
+    88%     { opacity: 1; transform: scale(1); }
+    100%    { opacity: 0; transform: scale(1); }
 }
 
 .brand-name {

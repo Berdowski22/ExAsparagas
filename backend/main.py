@@ -199,9 +199,15 @@ def analyze_with_gemini(text, sources, web_verified):
         "Recent real events are expected and you cannot have memorized them.\n"
         "  - Reserve \"Fake\" for claims that are implausible, contradicted by sources, or show "
         "clear fabrication signals — not merely for claims you cannot verify.\n\n"
-        "Be genuinely helpful and conversational with the user — explain your thinking clearly, "
-        "point out exactly what makes the claim credible or suspicious, and tell them what they "
-        "should do next. Write to the reader directly, not as a dry report.\n\n"
+        "INTERPRET THE NEWS FOR THE READER. Your analysis must be about the SUBSTANCE of the "
+        "report itself — not about the search process. First make sense of what the report is "
+        "actually claiming and the real-world context behind it (what happened, who is involved, "
+        "why it matters). Then explain WHY it reads as real or fake by reasoning about the content: "
+        "are the events plausible given how the world works, are the named people/figures/dates/"
+        "cause-and-effect internally consistent, does anything contradict known reality or itself? "
+        "Treat web corroboration as ONE supporting signal — do NOT make the analysis mostly about "
+        "whether a web search found the story. Avoid phrasing like 'trusted searches corroborate'; "
+        "instead explain the news. Write to the reader directly and conversationally.\n\n"
         "Respond ONLY with a JSON object using these keys:\n"
         '  "is_news": true if the input is a news claim/report, otherwise false\n'
         '  "verdict": one of "Real", "Fake", "Uncertain" (use "Uncertain" when is_news is false)\n'
@@ -209,12 +215,18 @@ def analyze_with_gemini(text, sources, web_verified):
         '  "summary": ONE sentence that directly answers the user as if replying to '
         '"is this real or fake?". It MUST open with a clear verdict word and address the '
         'reader: start with "Yes — this appears to be REAL:" if real, "No — this looks FAKE:" '
-        'if fake, or "It is unclear:" if uncertain, then a short reason. Be direct, not a dry report.\n'
-        '  "key_points": an array of 2-4 short strings, each a concrete signal that supports or '
-        "undermines the claim (mention sources, dates, numbers, or wording where relevant)\n"
+        'if fake, or "It is unclear:" if uncertain, then a short reason grounded in the news '
+        "content itself (what the report claims and why that is or isn't believable), not in "
+        "the search process. Be direct, not a dry report.\n"
+        '  "key_points": an array of 2-4 short strings. Each must INTERPRET a concrete part of '
+        "the news content itself — what a specific claim, figure, date, named person, or "
+        "cause-and-effect in the report tells us about whether it is believable. Focus on the "
+        "substance of the news, not on whether a web search located it.\n"
         '  "recommendation": one actionable sentence telling the user what to do next '
         "(e.g. which source to cross-check, what detail to be skeptical of)\n"
-        '  "reasoning": 2-4 sentences explaining your decision and the strongest signal. '
+        '  "reasoning": 2-4 sentences that INTERPRET the news for the reader — explain in plain '
+        "language what the report is saying, the context behind it, and the strongest reason it "
+        "reads as real or fake based on the events and facts themselves (not on the search). "
         "If is_news is false, briefly explain that the input is not news."
     )
 
