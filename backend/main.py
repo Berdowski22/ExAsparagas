@@ -78,7 +78,11 @@ def text_overlap(a, b):
     wb = {w for w in re.findall(r"[a-zA-Z]{4,}", b.lower()) if w not in STOPWORDS}
     if not wa or not wb:
         return 0.0
-    return round(len(wa & wb) / len(wa) * 100, 1)
+    # Küçük kümeye (genelde kısa snippet) göre normalize et: snippet tamamen
+    # makalede geçiyorsa skor yüksek olur. len(wa)'ya bölmek uzun makalelerde
+    # skoru daima düşürüp güvenilir eşleşmeleri kaçırıyordu.
+    denom = min(len(wa), len(wb))
+    return round(len(wa & wb) / denom * 100, 1)
 
 
 def _ddg_search(query, max_results=4):
@@ -183,8 +187,18 @@ def analyze_with_gemini(text, sources, web_verified):
         f"WEB SEARCH RESULTS:{sources_context if sources_context else ' none found'}\n\n"
         f"A trusted news source corroborates this: {'Yes' if web_verified else 'No'}\n\n"
         "If the input is NOT news, set \"is_news\" to false and do not judge real/fake. "
-        "If it IS news, weigh the writing style, plausibility, and whether reputable web sources "
-        "corroborate the claims.\n\n"
+        "If it IS news, weigh plausibility and whether reputable web sources corroborate the "
+        "claims. Polished or sloppy writing style is WEAK evidence either way — well-written "
+        "fakes and badly-written truths both exist, so do not lean on style.\n\n"
+        "IMPORTANT JUDGEMENT RULES:\n"
+        "  - If NO web sources were found, that is almost always a search limitation "
+        "(rate-limiting, paywalls, or a very recent event) — NOT evidence that the news is fake. "
+        "In that case prefer \"Uncertain\"; do NOT return \"Fake\" unless the claim itself is "
+        "internally implausible or self-contradictory.\n"
+        "  - Do NOT judge a claim as fake merely because it post-dates your training data. "
+        "Recent real events are expected and you cannot have memorized them.\n"
+        "  - Reserve \"Fake\" for claims that are implausible, contradicted by sources, or show "
+        "clear fabrication signals — not merely for claims you cannot verify.\n\n"
         "Be genuinely helpful and conversational with the user — explain your thinking clearly, "
         "point out exactly what makes the claim credible or suspicious, and tell them what they "
         "should do next. Write to the reader directly, not as a dry report.\n\n"
@@ -284,6 +298,18 @@ def predict_news(news: NewsInput):
         }
 
     verdict = result["verdict"]
+    confidence = result["confidence"]
+
+    # Çelişki uzlaştırma: Güvenilir bir kaynak haberi doğruluyorsa (web_verified)
+    # ama Gemini "Fake" dediyse, bu gerçek bir çelişkidir. Sahte kararını körü
+    # körüne göstermek yerine "Uncertain"a indir ve çelişkiyi kullanıcıya bildir;
+    # böylece "Likely Fake" + "güvenilir kaynak doğruluyor" gibi tutarsız bir
+    # ekran oluşmaz.
+    conflict = web_verified and verdict == "Fake"
+    if conflict:
+        verdict = "Uncertain"
+        confidence = min(confidence, 50)
+
     if verdict == "Real":
         prediction, verdict_label = "Real", "Likely Real"
     elif verdict == "Fake":
@@ -291,7 +317,10 @@ def predict_news(news: NewsInput):
     else:
         prediction, verdict_label = "Uncertain", "Uncertain"
 
-    if web_verified:
+    if conflict:
+        verdict_detail = ("Conflicting signals: a trusted web source corroborates this, but "
+                          "Gemini found the claim suspicious — treat with caution and verify.")
+    elif web_verified:
         verdict_detail = "A trusted web source corroborates this."
     elif sources:
         verdict_detail = "Related web results were found, but no trusted source strongly matched."
@@ -300,7 +329,7 @@ def predict_news(news: NewsInput):
 
     return {
         "prediction": prediction,
-        "confidence": result["confidence"],
+        "confidence": confidence,
         "verdict": verdict_label,
         "verdict_detail": verdict_detail,
         "web_verified": web_verified,
