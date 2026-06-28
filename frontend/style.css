@@ -543,3 +543,107 @@ footer {
     color: #f87171;
     font-size: 0.9rem;
 }
+
+/* Zoom (expand) button on result bubbles */
+.bot-message .bubble.has-zoom { position: relative; }
+
+.zoom-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.zoom-btn:hover {
+    background: rgba(255, 255, 255, 0.16);
+    color: var(--text-main);
+    transform: scale(1.08);
+    box-shadow: none;
+}
+
+/* Modal overlay */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(2, 6, 23, 0.7);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    animation: fadeIn 0.25s ease forwards;
+}
+
+.modal-overlay[hidden] { display: none; }
+
+.modal-box {
+    position: relative;
+    width: 100%;
+    max-width: 720px;
+    max-height: 85vh;
+    overflow: hidden;
+    background: #131c30;
+    border: 1px solid var(--glass-border);
+    border-radius: 18px;
+    box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.7);
+    animation: fadeIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.modal-close {
+    position: absolute;
+    top: 12px;
+    right: 14px;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    font-size: 1.3rem;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 1;
+}
+
+.modal-close:hover {
+    background: rgba(255, 255, 255, 0.16);
+    color: var(--text-main);
+    transform: none;
+    box-shadow: none;
+}
+
+.modal-content {
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 48px 28px 28px;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    text-align: left;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+.modal-content::-webkit-scrollbar { width: 6px; }
+.modal-content::-webkit-scrollbar-track { background: transparent; }
+.modal-content::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 3px;
+}

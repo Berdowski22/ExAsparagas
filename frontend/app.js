@@ -4,8 +4,52 @@ document.addEventListener('DOMContentLoaded', () => {
     const analyzeBtn = document.getElementById('analyzeBtn');
     const wordCounter = document.getElementById('wordCounter');
 
+    const outputModal = document.getElementById('outputModal');
+    const modalContent = document.getElementById('modalContent');
+    const modalClose = document.getElementById('modalClose');
+
     const API_URL = 'http://127.0.0.1:8000/predict';
     const MIN_WORDS = 20;
+
+    // --- Popup (zoom) for AI output ---
+    function openModal(bubble) {
+        // Clone the rendered result so the popup shows the exact same content
+        const clone = bubble.cloneNode(true);
+        const zoomInClone = clone.querySelector('.zoom-btn');
+        if (zoomInClone) zoomInClone.remove();
+
+        modalContent.innerHTML = '';
+        while (clone.firstChild) modalContent.appendChild(clone.firstChild);
+
+        outputModal.hidden = false;
+        modalContent.scrollTop = 0;
+    }
+
+    function closeModal() {
+        outputModal.hidden = true;
+        modalContent.innerHTML = '';
+    }
+
+    modalClose.addEventListener('click', closeModal);
+    outputModal.addEventListener('click', (e) => {
+        if (e.target === outputModal) closeModal();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !outputModal.hidden) closeModal();
+    });
+
+    // Adds the zoom-in button to a finished result bubble
+    function addZoomButton(bubble) {
+        bubble.classList.add('has-zoom');
+        const btn = document.createElement('button');
+        btn.className = 'zoom-btn';
+        btn.type = 'button';
+        btn.title = 'Expand output';
+        btn.setAttribute('aria-label', 'Expand output');
+        btn.textContent = '⤢';
+        btn.addEventListener('click', () => openModal(bubble));
+        bubble.appendChild(btn);
+    }
 
     // --- Word counting / validation ---
     function countWords(text) {
@@ -81,6 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 why.textContent = data.gemini_analysis;
                 bubble.appendChild(why);
             }
+            addZoomButton(bubble);
             return;
         }
 
@@ -226,6 +271,7 @@ document.addEventListener('DOMContentLoaded', () => {
             bubble.appendChild(card);
         }
 
+        addZoomButton(bubble);
         scrollToBottom();
     }
 
