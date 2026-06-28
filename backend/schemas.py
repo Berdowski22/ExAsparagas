@@ -5,6 +5,8 @@ biçimleridir. Şifre hash'i gibi alanlar yanıt şemalarına ASLA konmaz.
 """
 
 import re
+from datetime import datetime
+from typing import Optional
 
 from pydantic import BaseModel, field_validator
 
@@ -72,3 +74,36 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserOut
+
+
+# ===== Blog gönderileri =====
+class PostCreate(BaseModel):
+    news_text: str
+    result: dict  # analizin tam JSON çıktısı (frontend'in /predict'ten aldığı obje)
+
+    @field_validator("news_text")
+    @classmethod
+    def _news_ok(cls, v: str) -> str:
+        v = (v or "").strip()
+        if not v:
+            raise ValueError("Paylaşılacak içerik boş olamaz.")
+        return v
+
+
+class VerifyRequest(BaseModel):
+    is_correct: bool
+
+
+class PostOut(BaseModel):
+    id: int
+    author: str
+    author_role: str
+    news_text: str
+    verdict: str
+    result: dict
+    created_at: datetime
+    correct_count: int
+    incorrect_count: int
+    my_vote: Optional[bool] = None   # mevcut kullanıcının oyu (yoksa None)
+    can_verify: bool                 # mevcut kullanıcı doğrulayabilir mi
+    is_mine: bool                    # gönderi mevcut kullanıcıya mı ait

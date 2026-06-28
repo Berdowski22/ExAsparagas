@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ExAsparagas — Community Blog</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="background-shapes">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+        <div class="shape shape-3"></div>
+    </div>
+
+    <div class="container">
+        <nav class="nav-bar" id="navBar" hidden>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link" data-page="analyzer">🔍 Analyzer</a>
+                <a href="blog.html" class="nav-link" data-page="blog">📰 Blog</a>
+            </div>
+            <div class="nav-user">
+                <span class="user-chip">
+                    <span class="user-avatar" id="userAvatar">👤</span>
+                    <span class="user-name" id="userName"></span>
+                    <span class="user-role-badge" id="userRoleBadge"></span>
+                </span>
+                <button class="logout-btn" id="logoutBtn" type="button">Log out</button>
+            </div>
+        </nav>
+
+        <header>
+            <h1 class="brand-name">Community Blog</h1>
+            <p class="tagline">Shared analyses — <span class="tag-real">verified</span> by journalists</p>
+        </header>
+
+        <main>
+            <div id="blogFeed" class="blog-feed">
+                <p class="blog-loading">Loading shared analyses…</p>
+            </div>
+        </main>
+
+        <footer>
+            <p class="footer-disclaimer">⚠️ Journalist verification reflects expert opinion, not absolute proof.</p>
+            <p class="footer-meta">ExAsparagas &copy; 2026 · Powered by <span class="footer-accent">Gemini</span></p>
+        </footer>
+    </div>
+
+    <!-- Expanded post popup -->
+    <div id="outputModal" class="modal-overlay" hidden>
+        <div class="modal-box" role="dialog" aria-modal="true" aria-label="Shared analysis (expanded)">
+            <button class="modal-close" id="modalClose" aria-label="Close">&times;</button>
+            <div class="modal-content" id="modalContent"></div>
+        </div>
+    </div>
+
+    <script src="common.js"></script>
+    <script src="blog.js"></script>
+</body>
+</html>

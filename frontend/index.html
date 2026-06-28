@@ -16,14 +16,20 @@
     </div>
 
     <div class="container">
-        <div class="user-bar" id="userBar" hidden>
-            <span class="user-chip">
-                <span class="user-avatar" id="userAvatar">👤</span>
-                <span class="user-name" id="userName"></span>
-                <span class="user-role-badge" id="userRoleBadge"></span>
-            </span>
-            <button class="logout-btn" id="logoutBtn" type="button">Log out</button>
-        </div>
+        <nav class="nav-bar" id="navBar" hidden>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link" data-page="analyzer">🔍 Analyzer</a>
+                <a href="blog.html" class="nav-link" data-page="blog">📰 Blog</a>
+            </div>
+            <div class="nav-user">
+                <span class="user-chip">
+                    <span class="user-avatar" id="userAvatar">👤</span>
+                    <span class="user-name" id="userName"></span>
+                    <span class="user-role-badge" id="userRoleBadge"></span>
+                </span>
+                <button class="logout-btn" id="logoutBtn" type="button">Log out</button>
+            </div>
+        </nav>
         <header>
             <div class="brand">
                 <svg class="brand-mark" viewBox="0 0 120 120" role="img" aria-label="ExAsparagas logo" xmlns="http://www.w3.org/2000/svg">
@@ -129,7 +135,7 @@
         </main>
 
         <footer>
-            <p class="footer-disclaimer">⚠️ AI can make mistakes — always double-check important news with the cited sources.</p>
+            <p class="footer-disclaimer">⚠️ AI can make mistakes, always double-check important news with the cited sources.</p>
             <p class="footer-meta">ExAsparagas &copy; 2026 · Powered by <span class="footer-accent">Gemini</span></p>
         </footer>
     </div>
@@ -142,6 +148,7 @@
         </div>
     </div>
 
+    <script src="common.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

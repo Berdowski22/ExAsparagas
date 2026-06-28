@@ -11,48 +11,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const API_URL = 'http://127.0.0.1:8000/predict';
     const MIN_WORDS = 20;
 
-    // --- Auth guard: must be signed in to use the app ---
-    const token = localStorage.getItem('token');
-    if (!token) {
-        window.location.href = 'login.html';
-        return;
-    }
-
-    // Show the logged-in user in the header
-    const userBar = document.getElementById('userBar');
-    const userNameEl = document.getElementById('userName');
-    const userRoleBadge = document.getElementById('userRoleBadge');
-    const logoutBtn = document.getElementById('logoutBtn');
-
-    function logout() {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = 'login.html';
-    }
-    logoutBtn.addEventListener('click', logout);
-
-    try {
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
-        if (user && user.username) {
-            userNameEl.textContent = user.username;
-            // Journalists awaiting approval show as "Pending"
-            if (user.role === 'journalist' && !user.is_verified) {
-                userRoleBadge.textContent = 'Journalist · Pending';
-                userRoleBadge.classList.add('pending');
-            } else {
-                userRoleBadge.textContent = user.role;
-                userRoleBadge.classList.add(user.role);
-            }
-            userBar.hidden = false;
-        }
-    } catch (e) { /* ignore malformed user */ }
+    // --- Auth guard + shared nav (see common.js) ---
+    if (!Auth.requireLogin()) return;
+    Auth.initNav('analyzer');
+    const token = Auth.token;
+    const logout = () => Auth.logout();
 
     // --- Popup (zoom) for AI output ---
     function openModal(bubble) {
         // Clone the rendered result so the popup shows the exact same content
         const clone = bubble.cloneNode(true);
-        const zoomInClone = clone.querySelector('.zoom-btn');
-        if (zoomInClone) zoomInClone.remove();
+        const actionsInClone = clone.querySelector('.bubble-actions');
+        if (actionsInClone) actionsInClone.remove();
 
         modalContent.innerHTML = '';
         while (clone.firstChild) modalContent.appendChild(clone.firstChild);
@@ -74,17 +44,59 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Escape' && !outputModal.hidden) closeModal();
     });
 
-    // Adds the zoom-in button to a finished result bubble
-    function addZoomButton(bubble) {
+    // Share a finished analysis to the blog
+    async function sharePost(btn, data) {
+        if (btn.disabled) return;
+        btn.disabled = true;
+        const prev = btn.textContent;
+        btn.textContent = '…';
+        try {
+            const res = await fetch(API_BASE + '/posts', {
+                method: 'POST',
+                headers: Auth.authHeaders({ 'Content-Type': 'application/json' }),
+                body: JSON.stringify({ news_text: data.__newsText || '', result: data })
+            });
+            if (res.status === 401) { logout(); return; }
+            if (!res.ok) throw new Error('share failed');
+            btn.textContent = '✓';
+            btn.title = 'Shared to blog';
+            btn.classList.add('shared');
+        } catch (err) {
+            console.error(err);
+            btn.textContent = prev;
+            btn.disabled = false;
+            btn.title = 'Could not share — try again';
+        }
+    }
+
+    // Adds the action buttons (share + zoom) to a finished result bubble.
+    // shareable=false for "Not News" results, which aren't worth posting.
+    function addBubbleActions(bubble, data, shareable) {
         bubble.classList.add('has-zoom');
-        const btn = document.createElement('button');
-        btn.className = 'zoom-btn';
-        btn.type = 'button';
-        btn.title = 'Expand output';
-        btn.setAttribute('aria-label', 'Expand output');
-        btn.textContent = '⤢';
-        btn.addEventListener('click', () => openModal(bubble));
-        bubble.appendChild(btn);
+        const actions = document.createElement('div');
+        actions.className = 'bubble-actions';
+
+        if (shareable) {
+            const shareBtn = document.createElement('button');
+            shareBtn.className = 'bubble-action-btn';
+            shareBtn.type = 'button';
+            shareBtn.title = 'Share to blog';
+            shareBtn.setAttribute('aria-label', 'Share to blog');
+            shareBtn.textContent = '📤';
+            shareBtn.addEventListener('click', () => sharePost(shareBtn, data));
+            actions.appendChild(shareBtn);
+        }
+
+        const zoomBtn = document.createElement('button');
+        zoomBtn.className = 'bubble-action-btn';
+        zoomBtn.type = 'button';
+        zoomBtn.title = 'Expand output';
+        zoomBtn.setAttribute('aria-label', 'Expand output');
+        zoomBtn.textContent = '⤢';
+        zoomBtn.addEventListener('click', () => openModal(bubble));
+        actions.appendChild(zoomBtn);
+
+        bubble.appendChild(actions);
     }
 
     // --- Word counting / validation ---
@@ -161,7 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 why.textContent = data.gemini_analysis;
                 bubble.appendChild(why);
             }
-            addZoomButton(bubble);
+            addBubbleActions(bubble, data, false); // "Not News" isn't worth sharing
             return;
         }
 
@@ -307,7 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
             bubble.appendChild(card);
         }
 
-        addZoomButton(bubble);
+        addBubbleActions(bubble, data, true);
         scrollToBottom();
     }
 
@@ -354,6 +366,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const data = await response.json();
+            data.__newsText = text; // keep the source text so it can be shared to the blog
             renderResult(loadingBubble, data);
         } catch (error) {
             console.error('Error:', error);
