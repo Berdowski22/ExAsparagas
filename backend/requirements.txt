@@ -4,3 +4,7 @@ joblib
 ddgs
 google-genai
 python-dotenv
+sqlalchemy
+psycopg[binary]
+bcrypt
+pyjwt

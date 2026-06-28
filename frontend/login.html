@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ExAsparagas — Sign in</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="background-shapes">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+        <div class="shape shape-3"></div>
+    </div>
+
+    <div class="auth-container">
+        <header class="auth-header">
+            <div class="brand">
+                <img class="brand-mark" src="favicon.svg" alt="ExAsparagas logo" width="48" height="48">
+                <h1 class="brand-name">ExAsparagas</h1>
+            </div>
+            <p class="tagline" id="authSubtitle">Welcome back — sign in to continue</p>
+        </header>
+
+        <!-- Tab switcher -->
+        <div class="auth-tabs">
+            <button class="auth-tab active" id="tabLogin" type="button">Sign in</button>
+            <button class="auth-tab" id="tabSignup" type="button">Create account</button>
+        </div>
+
+        <form id="authForm" class="auth-form" autocomplete="on">
+            <!-- Username (signup only) -->
+            <div class="field" id="usernameField" hidden>
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" placeholder="e.g. jane_doe" autocomplete="username">
+            </div>
+
+            <!-- Login uses one identifier (username OR email); signup uses email -->
+            <div class="field">
+                <label for="identifier" id="identifierLabel">Username or email</label>
+                <input type="text" id="identifier" name="identifier" placeholder="you@example.com" autocomplete="username">
+            </div>
+
+            <div class="field">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" placeholder="••••••••" autocomplete="current-password">
+            </div>
+
+            <!-- Role chooser (signup only) -->
+            <div class="field" id="roleField" hidden>
+                <label>I am a…</label>
+                <div class="role-options">
+                    <label class="role-option">
+                        <input type="radio" name="role" value="casual" checked>
+                        <span class="role-card">
+                            <span class="role-emoji">👤</span>
+                            <span class="role-title">Casual reader</span>
+                            <span class="role-desc">Check news as a regular user</span>
+                        </span>
+                    </label>
+                    <label class="role-option">
+                        <input type="radio" name="role" value="journalist">
+                        <span class="role-card">
+                            <span class="role-emoji">📰</span>
+                            <span class="role-title">Journalist</span>
+                            <span class="role-desc">Verified after admin approval</span>
+                        </span>
+                    </label>
+                </div>
+            </div>
+
+            <p class="auth-message" id="authMessage" hidden></p>
+
+            <button type="submit" id="submitBtn">
+                <span class="btn-icon">🔓</span>
+                <span class="btn-text">Sign in</span>
+            </button>
+        </form>
+
+        <p class="auth-switch">
+            <span id="switchPrompt">Don't have an account?</span>
+            <a href="#" id="switchLink">Create one</a>
+        </p>
+
+        <footer class="auth-footer">
+            <p class="footer-meta">ExAsparagas &copy; 2026 · Powered by <span class="footer-accent">Gemini</span></p>
+        </footer>
+    </div>
+
+    <script src="login.js"></script>
+</body>
+</html>

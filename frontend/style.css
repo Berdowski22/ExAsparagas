@@ -544,6 +544,235 @@ footer {
     font-size: 0.9rem;
 }
 
+/* ===== Auth (login / signup) page ===== */
+.auth-container {
+    background: var(--glass-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    border-radius: 24px;
+    padding: 32px 36px;
+    width: 90%;
+    max-width: 440px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.auth-header { text-align: center; }
+.auth-header .brand { margin-bottom: 8px; }
+.auth-header .tagline { font-size: 0.95rem; font-weight: 400; color: var(--text-muted); }
+
+/* Tab switcher */
+.auth-tabs {
+    display: flex;
+    gap: 6px;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 5px;
+}
+
+.auth-tab {
+    flex: 1;
+    background: transparent;
+    color: var(--text-muted);
+    border: none;
+    border-radius: 8px;
+    padding: 9px 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    /* Neutralize the global button:hover lift/shadow so tabs stay flat in the bar */
+    transition: background 0.25s ease, color 0.25s ease;
+}
+.auth-tab:hover,
+.auth-tab:hover:not(:disabled),
+.auth-tab.active:hover {
+    transform: none;
+    box-shadow: none;
+    background-position: 0 0;
+}
+.auth-tab:hover:not(.active) { color: var(--text-main); background: rgba(255, 255, 255, 0.05); }
+.auth-tab.active {
+    background-image: linear-gradient(135deg, #6366f1, #a855f7);
+    background-size: 100% 100%;
+    color: #fff;
+}
+
+/* Form */
+.auth-form { display: flex; flex-direction: column; gap: 14px; }
+
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field[hidden] { display: none; }
+
+.field label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.field input[type="text"],
+.field input[type="email"],
+.field input[type="password"] {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 13px 14px;
+    color: var(--text-main);
+    font-family: inherit;
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.field input::placeholder { color: rgba(156, 163, 175, 0.6); }
+
+.field input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+    background: rgba(0, 0, 0, 0.4);
+}
+
+/* Role chooser */
+.role-options { display: flex; gap: 10px; }
+.role-option { flex: 1; cursor: pointer; }
+.role-option input { position: absolute; opacity: 0; pointer-events: none; }
+
+.role-card {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    height: 100%;
+    padding: 12px 12px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    transition: border-color 0.2s ease, background 0.2s ease, transform 0.15s ease;
+}
+.role-option:hover .role-card { transform: translateY(-2px); }
+.role-option input:checked + .role-card {
+    border-color: var(--primary-color);
+    background: rgba(99, 102, 241, 0.12);
+    box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.4);
+}
+.role-emoji { font-size: 1.3rem; }
+.role-title { font-size: 0.9rem; font-weight: 600; color: var(--text-main); }
+.role-desc { font-size: 0.74rem; color: var(--text-muted); line-height: 1.35; }
+
+/* Submit button reuses the global button styles; make it full-width */
+.auth-form button[type="submit"] {
+    justify-content: center;
+    width: 100%;
+    margin-top: 4px;
+    padding: 13px 26px;
+}
+
+/* Inline message */
+.auth-message {
+    font-size: 0.85rem;
+    padding: 10px 12px;
+    border-radius: 10px;
+    line-height: 1.4;
+}
+.auth-message[hidden] { display: none; }
+.auth-message.error {
+    color: #fca5a5;
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+.auth-message.success {
+    color: #6ee7b7;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+/* Switch link + footer */
+.auth-switch {
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+.auth-switch a {
+    color: #a5b4fc;
+    font-weight: 600;
+    text-decoration: none;
+    margin-left: 4px;
+}
+.auth-switch a:hover { text-decoration: underline; }
+
+.auth-footer {
+    text-align: center;
+    padding-top: 8px;
+    border-top: 1px solid var(--glass-border);
+}
+
+/* ===== Logged-in user bar (on the main app) ===== */
+.user-bar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-shrink: 0;
+}
+.user-bar[hidden] { display: none; }
+
+.user-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--glass-border);
+    border-radius: 999px;
+    padding: 5px 12px 5px 6px;
+}
+.user-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #6366f1, #a855f7);
+    font-size: 0.85rem;
+}
+.user-name { font-size: 0.85rem; font-weight: 600; color: var(--text-main); }
+
+.user-role-badge {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(99, 102, 241, 0.2);
+    color: #a5b4fc;
+}
+.user-role-badge.admin { background: rgba(239, 68, 68, 0.18); color: #fca5a5; }
+.user-role-badge.journalist { background: rgba(16, 185, 129, 0.18); color: #6ee7b7; }
+.user-role-badge.pending { background: rgba(245, 158, 11, 0.18); color: #fbbf24; }
+
+.logout-btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--glass-border);
+    color: var(--text-muted);
+    border-radius: 10px;
+    padding: 7px 14px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+.logout-btn:hover {
+    background: rgba(255, 255, 255, 0.14);
+    color: var(--text-main);
+    transform: none;
+    box-shadow: none;
+}
+
 /* Zoom (expand) button on result bubbles */
 .bot-message .bubble.has-zoom { position: relative; }
 

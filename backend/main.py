@@ -10,6 +10,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from ddgs import DDGS
 from dotenv import load_dotenv
 
+import models  # noqa: F401  (User modelinin Base'e kaydolması için)
+import auth
+from database import init_db
+
 # .env dosyasındaki değişkenleri os.environ'a yükler (GEMINI_API_KEY vb.)
 load_dotenv()
 
@@ -22,6 +26,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Uygulama açılışında tabloları oluştur (yoksa) ve auth uç noktalarını ekle
+init_db()
+app.include_router(auth.router)
 
 class NewsInput(BaseModel):
     text: str

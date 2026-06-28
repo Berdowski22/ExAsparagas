@@ -11,6 +11,42 @@ document.addEventListener('DOMContentLoaded', () => {
     const API_URL = 'http://127.0.0.1:8000/predict';
     const MIN_WORDS = 20;
 
+    // --- Auth guard: must be signed in to use the app ---
+    const token = localStorage.getItem('token');
+    if (!token) {
+        window.location.href = 'login.html';
+        return;
+    }
+
+    // Show the logged-in user in the header
+    const userBar = document.getElementById('userBar');
+    const userNameEl = document.getElementById('userName');
+    const userRoleBadge = document.getElementById('userRoleBadge');
+    const logoutBtn = document.getElementById('logoutBtn');
+
+    function logout() {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = 'login.html';
+    }
+    logoutBtn.addEventListener('click', logout);
+
+    try {
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        if (user && user.username) {
+            userNameEl.textContent = user.username;
+            // Journalists awaiting approval show as "Pending"
+            if (user.role === 'journalist' && !user.is_verified) {
+                userRoleBadge.textContent = 'Journalist · Pending';
+                userRoleBadge.classList.add('pending');
+            } else {
+                userRoleBadge.textContent = user.role;
+                userRoleBadge.classList.add(user.role);
+            }
+            userBar.hidden = false;
+        }
+    } catch (e) { /* ignore malformed user */ }
+
     // --- Popup (zoom) for AI output ---
     function openModal(bubble) {
         // Clone the rendered result so the popup shows the exact same content
@@ -300,9 +336,18 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch(API_URL, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                },
                 body: JSON.stringify({ text: text })
             });
+
+            // Session expired / invalid → back to login
+            if (response.status === 401) {
+                logout();
+                return;
+            }
 
             if (!response.ok) {
                 throw new Error('API returned an error');
